@@ -18,12 +18,13 @@ func IsPixelInTriangle(p Vec3, v1, v2, v3 Vec3) (bool, float32, float32, float32
 
 }
 
-func ColorFromWeights(w0, w1, w2 float32, c0, c1, c2 Vec4) (byte, byte, byte) {
+func ColorFromWeights(w0, w1, w2 float32, c0, c1, c2 Vec4) (byte, byte, byte, byte) {
 	r := byte(w0*c0.X + w1*c1.X + w2*c2.X)
 	g := byte(w0*c0.Y + w1*c1.Y + w2*c2.Y)
 	b := byte(w0*c0.Z + w1*c1.Z + w2*c2.Z)
+	a := byte(w0*c0.A + w1*c1.A + w2*c2.A)
 
-	return r, g, b
+	return r, g, b, a
 }
 
 func GetRectBounds(a, b, c Vec3) (minX, maxX, minY, maxY int) {

@@ -7,6 +7,10 @@ import (
 	"github.com/Zyko0/go-sdl3/sdl"
 )
 
+func interpolateZValue(w0, w1, w2, z0, z1, z2 float32) float32 {
+	return w0*z0 + w1*z1 + w2*z2
+}
+
 func main() {
 	defer binsdl.Load().Unload()
 	defer sdl.Quit()
@@ -28,30 +32,56 @@ func main() {
 	renderer.SetDrawColor(255, 255, 255, 255)
 
 	pixels := make([]byte, width*height*4)
+	// use for double buffer setup later
+	// pixels2 := make([]byte, width*height*4)
 
 	zbuffer := make([]float32, width*height)
 	for i := range zbuffer {
-		zbuffer[i] = float32(math.Inf(1))
+		zbuffer[i] = float32(math.Inf(-1))
 	}
 
 	Red := Vec4{255, 0, 0, 255}
-	Green := Vec4{0, 255, 0, 0}
+	Green := Vec4{0, 255, 0, 255}
 	Blue := Vec4{0, 0, 255, 255}
 
 	verts := []Vertex{
-		{Pos: Vec3{X: 200, Y: 100, Z: 0}, Color: &Red},
-		{Pos: Vec3{X: 350, Y: 100, Z: 0}, Color: &Blue},
-		{Pos: Vec3{X: 350, Y: 700, Z: 0}, Color: &Green},
-		{Pos: Vec3{X: 200, Y: 700, Z: 0}, Color: &Red},
-		{Pos: Vec3{X: 200, Y: 200, Z: 0}, Color: &Blue},
-		{Pos: Vec3{X: 400, Y: 400, Z: 0}, Color: &Green},
-		{Pos: Vec3{X: 600, Y: 700, Z: 0}, Color: &Red},
+		// Front face (z = 1)
+		{Pos: Vec3{X: 200, Y: 100, Z: 1}, Color: &Green}, // 0
+		{Pos: Vec3{X: 600, Y: 100, Z: 1}, Color: &Green}, // 1
+		{Pos: Vec3{X: 600, Y: 500, Z: 1}, Color: &Green}, // 2
+		{Pos: Vec3{X: 200, Y: 500, Z: 1}, Color: &Green}, // 3
+
+		// Back face (z = 0)
+		{Pos: Vec3{X: 200, Y: 100, Z: 0}, Color: &Blue}, // 4
+		{Pos: Vec3{X: 600, Y: 100, Z: 0}, Color: &Red},  // 5
+		{Pos: Vec3{X: 600, Y: 500, Z: 0}, Color: &Red},  // 6
+		{Pos: Vec3{X: 200, Y: 500, Z: 0}, Color: &Blue}, // 7
 	}
 
 	faces := []uint32{
+		// Front face
 		0, 1, 2,
 		0, 2, 3,
-		4, 5, 6,
+
+		// Back face
+		5, 4, 7,
+		5, 7, 6,
+
+		// Left face
+		4, 0, 3,
+		4, 3, 7,
+
+		// Right face
+		1, 5, 6,
+		1, 6, 2,
+
+		// Top face
+		4, 5, 1,
+		4, 1, 0,
+
+		// Bottom face
+		3, 2, 6,
+		3, 6, 7,
 	}
 
 	texture, err := renderer.CreateTexture(
@@ -59,13 +89,6 @@ func main() {
 		sdl.TEXTUREACCESS_STREAMING,
 		width, height,
 	)
-
-	// for i := 0; i < len(pixels); i += 4 {
-	// 	pixels[i] = 255
-	// 	pixels[i+1] = 0
-	// 	pixels[i+2] = 0
-	// 	pixels[i+3] = 0
-	// }
 
 	sdl.RunLoop(func() error {
 		var event sdl.Event
@@ -103,13 +126,20 @@ func main() {
 					// Create vec from center of pixel
 					inTri, w0, w1, w2 := IsPixelInTriangle(Vec3{float32(x) + 0.5, float32(y) + 0.5, 0}, v1.Pos, v2.Pos, v3.Pos)
 					if inTri {
-						r, g, b := ColorFromWeights(w0, w1, w2, *v1.Color, *v2.Color, *v3.Color)
+						r, g, b, a := ColorFromWeights(w0, w1, w2, *v1.Color, *v2.Color, *v3.Color)
 						coord := ToArrayCoordsYUp(x, y, width, height, 4)
+						zCoord := ToArrayCoordsYUp(x, y, width, height, 1)
 
-						pixels[coord] = r
-						pixels[coord+1] = g
-						pixels[coord+2] = b
-						pixels[coord+3] = 255
+						interpolatedZ := interpolateZValue(w0, w1, w2, v1.Pos.Z, v2.Pos.Z, v3.Pos.Z)
+						if interpolatedZ >= zbuffer[zCoord] {
+
+							zbuffer[zCoord] = interpolatedZ
+
+							pixels[coord] = r
+							pixels[coord+1] = g
+							pixels[coord+2] = b
+							pixels[coord+3] = a
+						}
 
 					}
 				}
