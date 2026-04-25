@@ -45,19 +45,18 @@ func main() {
 	Blue := Vec4{0, 0, 255, 255}
 
 	verts := []Vertex{
-		// Front face (z = 1)
-		{Pos: Vec3{X: 200, Y: 100, Z: 1}, Color: &Green}, // 0
-		{Pos: Vec3{X: 600, Y: 100, Z: 1}, Color: &Green}, // 1
-		{Pos: Vec3{X: 600, Y: 500, Z: 1}, Color: &Green}, // 2
-		{Pos: Vec3{X: 200, Y: 500, Z: 1}, Color: &Green}, // 3
+		// Front face (z = +3)
+		{Pos: Vec3{-2, -2, 1}, Color: &Green}, // 0
+		{Pos: Vec3{2, -2, 1}, Color: &Green},  // 1
+		{Pos: Vec3{2, 2, 1}, Color: &Green},   // 2
+		{Pos: Vec3{-2, 2, 1}, Color: &Green},  // 3
 
-		// Back face (z = 0)
-		{Pos: Vec3{X: 200, Y: 100, Z: 0}, Color: &Blue}, // 4
-		{Pos: Vec3{X: 600, Y: 100, Z: 0}, Color: &Red},  // 5
-		{Pos: Vec3{X: 600, Y: 500, Z: 0}, Color: &Red},  // 6
-		{Pos: Vec3{X: 200, Y: 500, Z: 0}, Color: &Blue}, // 7
+		// Back face (z = -3)
+		{Pos: Vec3{-2, -2, -1}, Color: &Blue}, // 4
+		{Pos: Vec3{2, -2, -1}, Color: &Red},   // 5
+		{Pos: Vec3{2, 2, -1}, Color: &Red},    // 6
+		{Pos: Vec3{-2, 2, -1}, Color: &Blue},  // 7
 	}
-
 	faces := []uint32{
 		// Front face
 		0, 1, 2,
@@ -90,6 +89,46 @@ func main() {
 		width, height,
 	)
 
+	screenVerts := make([]ScreenVertex, len(verts))
+
+	fovY := float32(math.Pi / 4.0)
+	aspectRatio := float32(width) / float32(height)
+
+	cameraPos := Vec3{0, 0, 30}
+	view := ViewMatrix(cameraPos)
+	proj := Perspective(1, 100.0, fovY, aspectRatio)
+
+	var model Matrix4
+	MulMatrix4(&model, Translate(0, 0, 0), RotationAlongY(40))
+
+	var temp Matrix4
+	MulMatrix4(&temp, &view, &model)
+
+	var mvp Matrix4
+	MulMatrix4(&mvp, &proj, &temp)
+
+	for i, v := range verts {
+		v4 := Vec4{v.Pos.X, v.Pos.Y, v.Pos.Z, 1}
+
+		clip := mvp.MultVec4(v4)
+
+		if clip.W <= 0 {
+			continue
+		}
+
+		divided := PerspectiveDivide(clip)
+
+		screenVerts[i] = ScreenVertex{
+			Pos: Vec3{
+				X: (divided.X + 1) * 0.5 * float32(width),
+				Y: (1 - divided.Y) * 0.5 * float32(height),
+				Z: divided.Z,
+			},
+			W: clip.W,
+		}
+
+	}
+
 	sdl.RunLoop(func() error {
 		var event sdl.Event
 
@@ -107,30 +146,28 @@ func main() {
 		}
 
 		for i := 0; i < len(faces); i += 3 {
-			v1 := verts[faces[i]]
-			v2 := verts[faces[i+1]]
-			v3 := verts[faces[i+2]]
+			v1 := screenVerts[faces[i]]
+			v2 := screenVerts[faces[i+1]]
+			v3 := screenVerts[faces[i+2]]
 
 			minX, maxX, minY, maxY := GetRectBounds(v1.Pos, v2.Pos, v3.Pos)
+
+			minX = max(0, minX)
+			minY = max(0, minY)
+			maxX = min(width-1, maxX)
+			maxY = min(height-1, maxY)
 
 			for y := minY; y <= maxY; y++ {
 				for x := minX; x <= maxX; x++ {
 
-					if minX < 0 || minY < 0 {
-						continue
-					}
-					if maxX >= height || maxY >= width {
-						continue
-					}
-
 					// Create vec from center of pixel
 					inTri, w0, w1, w2 := IsPixelInTriangle(Vec3{float32(x) + 0.5, float32(y) + 0.5, 0}, v1.Pos, v2.Pos, v3.Pos)
 					if inTri {
-						r, g, b, a := ColorFromWeights(w0, w1, w2, *v1.Color, *v2.Color, *v3.Color)
+						r, g, b, a := ColorFromWeights(w0, w1, w2, *verts[faces[i]].Color, *verts[faces[i+1]].Color, *verts[faces[i+2]].Color)
 						coord := ToArrayCoordsYUp(x, y, width, height, 4)
 						zCoord := ToArrayCoordsYUp(x, y, width, height, 1)
 
-						interpolatedZ := interpolateZValue(w0, w1, w2, v1.Pos.Z, v2.Pos.Z, v3.Pos.Z)
+						interpolatedZ := w0*v1.Pos.Z + w1*v2.Pos.Z + w2*v3.Pos.Z
 						if interpolatedZ >= zbuffer[zCoord] {
 
 							zbuffer[zCoord] = interpolatedZ

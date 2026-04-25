@@ -22,7 +22,7 @@ func ColorFromWeights(w0, w1, w2 float32, c0, c1, c2 Vec4) (byte, byte, byte, by
 	r := byte(w0*c0.X + w1*c1.X + w2*c2.X)
 	g := byte(w0*c0.Y + w1*c1.Y + w2*c2.Y)
 	b := byte(w0*c0.Z + w1*c1.Z + w2*c2.Z)
-	a := byte(w0*c0.A + w1*c1.A + w2*c2.A)
+	a := byte(w0*c0.W + w1*c1.W + w2*c2.W)
 
 	return r, g, b, a
 }
