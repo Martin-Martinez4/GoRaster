@@ -2,6 +2,18 @@ package main
 
 import "math"
 
+type Tex2 struct {
+	U float32
+	V float32
+}
+
+type Triangle struct {
+	points     [3]Vec4
+	textcoords [3]Tex2
+	colors     [3]Vec4
+	avgDepth   float32
+}
+
 func edge(p, a, b Vec3) float32 {
 	return (p.X-a.X)*(b.Y-a.Y) - (p.Y-a.Y)*(b.X-a.X)
 }
