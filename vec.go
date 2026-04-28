@@ -14,6 +14,14 @@ func (a Vec3) Dot(b Vec3) float32 {
 	return a.X*b.X + a.Y*b.Y + a.Z*b.Z
 }
 
+func (a Vec3) Cross(b Vec3) Vec3 {
+	return Vec3{
+		a.Y*b.Z - a.Z*b.Y,
+		a.Z*b.X - a.X*b.Z,
+		a.X*b.Y - a.Y*b.X,
+	}
+}
+
 func (a Vec3) Sub(b Vec3) Vec3 {
 	return Vec3{a.X - b.X, a.Y - b.Y, 0}
 }

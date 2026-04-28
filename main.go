@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/Zyko0/go-sdl3/bin/binsdl"
@@ -98,18 +99,37 @@ func main() {
 
 	// aspectRatio := float32(width) / float32(height)
 
-	cameraPos := Vec3{0, 0, 6}
+	cameraPos := Vec3{0, 0, 8}
 	view := ViewMatrix(cameraPos)
+
 	proj := Perspective(zNear, zFar, fovY, aspectX) // correct
 
 	initFrustumPlanes(fovY, fovx, zNear, zFar)
 
+	var lastTime uint64
+	var fps float32
+
+	frameCountFrequency := 10
+	var frameCount int
+	var fpsAcc float32
+
 	var rotationY float32 = 40.0
 
-	// viewVerts := make([]Vec4, len(verts))
+	viewVerts := make([]Vec4, len(verts))
 	clipSpaceVerts := make([]Vec4, len(verts))
 
 	sdl.RunLoop(func() error {
+		currentTime := sdl.Ticks()
+		deltaTime := float32(currentTime-lastTime) / 1000.0
+		lastTime = currentTime
+
+		// cap at 100ms to avoid first frame spike
+		if deltaTime > 0.1 {
+			deltaTime = 0.1
+		}
+		fpsAcc += 1.0 / deltaTime
+		frameCount++
+
 		var event sdl.Event
 
 		for sdl.PollEvent(&event) {
@@ -118,12 +138,24 @@ func main() {
 			}
 		}
 
+		// object space
+
+		// Create world space
 		var model Matrix4
 		MulMatrix4(&model, Translate(0, 0, 0), RotationAlongY(rotationY))
 
+		// Create view space
 		var temp Matrix4
 		MulMatrix4(&temp, &view, &model)
 
+		for i, v := range verts {
+			v4 := Vec4{v.Pos.X, v.Pos.Y, v.Pos.Z, 1}
+			viewVerts[i] = temp.MultVec4(v4)
+
+		}
+
+		// Create Clip Space?
+		// mvp is proj * view * model combined
 		var mvp Matrix4
 		MulMatrix4(&mvp, &proj, &temp)
 
@@ -141,6 +173,24 @@ func main() {
 		}
 
 		for i := 0; i < len(faces); i += 3 {
+
+			// back face culling
+			vs0 := viewVerts[faces[i]]
+			vs1 := viewVerts[faces[i+1]]
+			vs2 := viewVerts[faces[i+2]]
+
+			edge1 := Vec3{vs1.X - vs0.X, vs1.Y - vs0.Y, vs1.Z - vs0.Z}
+			edge2 := Vec3{vs2.X - vs0.X, vs2.Y - vs0.Y, vs2.Z - vs0.Z}
+
+			normal := edge1.Cross(edge2)
+
+			// in view space camera is at origin so camera ray is just -vertex
+			cameraRay := Vec3{-vs0.X, -vs0.Y, -vs0.Z}
+
+			if normal.Dot(cameraRay) <= 0 {
+				continue
+			}
+
 			v0 := clipSpaceVerts[faces[i]]
 			v1 := clipSpaceVerts[faces[i+1]]
 			v2 := clipSpaceVerts[faces[i+2]]
@@ -160,6 +210,7 @@ func main() {
 			numTrianglesAfterClipping := 0
 			TriangleFromPolygon(&poly, trianglesAfterClipping, &numTrianglesAfterClipping)
 
+			// NDC Space stuff
 			for j := 0; j < numTrianglesAfterClipping; j++ {
 
 				col0 := trianglesAfterClipping[j].colors[0]
@@ -233,6 +284,7 @@ func main() {
 				maxX = min(width-1, maxX)
 				maxY = min(height-1, maxY)
 
+				// screen space stuff
 				for y := minY; y <= maxY; y++ {
 					for x := minX; x <= maxX; x++ {
 
@@ -278,10 +330,17 @@ func main() {
 
 		renderer.Clear()
 		renderer.RenderTexture(texture, nil, nil)
-		// renderer.DebugText(50, 50, "Hello World")
+
+		if frameCount >= frameCountFrequency {
+			fps = fpsAcc / float32(frameCount)
+			fpsAcc = 0
+			frameCount = 0
+		}
+
+		renderer.DebugText(10, 10, fmt.Sprintf("FPS: %.0f", fps))
 		renderer.Present()
 
-		rotationY += .01
+		rotationY += 1.0 * deltaTime
 		for i := range zbuffer {
 			zbuffer[i] = float32(math.Inf(-1))
 		}
