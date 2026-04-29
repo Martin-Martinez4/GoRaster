@@ -118,6 +118,48 @@ func main() {
 	viewVerts := make([]Vec4, len(verts))
 	clipSpaceVerts := make([]Vec4, len(verts))
 
+	// might delete later
+	vertNormals := make([]Vec3, len(verts))
+	lightValues := make([]float32, len(verts))
+
+	for i := 0; i < len(faces); i += 3 {
+
+		v0 := verts[faces[i]].Pos
+		v1 := verts[faces[i+1]].Pos
+		v2 := verts[faces[i+2]].Pos
+
+		edge1 := Vec3{v1.X - v0.X, v1.Y - v0.Y, v1.Z - v0.Z}
+		edge2 := Vec3{v2.X - v0.X, v2.Y - v0.Y, v2.Z - v0.Z}
+
+		faceNormal := edge1.Cross(edge2)
+
+		vertNormals[faces[i]].X += faceNormal.X
+		vertNormals[faces[i]].Y += faceNormal.Y
+		vertNormals[faces[i]].Z += faceNormal.Z
+
+		vertNormals[faces[i+1]].X += faceNormal.X
+		vertNormals[faces[i+1]].Y += faceNormal.Y
+		vertNormals[faces[i+1]].Z += faceNormal.Z
+
+		vertNormals[faces[i+2]].X += faceNormal.X
+		vertNormals[faces[i+2]].Y += faceNormal.Y
+		vertNormals[faces[i+2]].Z += faceNormal.Z
+	}
+
+	for i := range vertNormals {
+		vertNormals[i] = vertNormals[i].Normalize()
+
+	}
+
+	// Baked in lighting; may remove later
+	lightDir := Vec3{0.5, 1, 0.5}.Normalize()
+	for i := range verts {
+
+		intensity := max(float32(0), vertNormals[i].Dot(lightDir))
+		// 0.2 ambient, 0.8 max
+		lightValues[i] = 0.2 + intensity*0.8
+	}
+
 	sdl.RunLoop(func() error {
 		currentTime := sdl.Ticks()
 		deltaTime := float32(currentTime-lastTime) / 1000.0
@@ -178,6 +220,10 @@ func main() {
 			vs0 := viewVerts[faces[i]]
 			vs1 := viewVerts[faces[i+1]]
 			vs2 := viewVerts[faces[i+2]]
+
+			l0 := lightValues[faces[i]]
+			l1 := lightValues[faces[i+1]]
+			l2 := lightValues[faces[i+2]]
 
 			edge1 := Vec3{vs1.X - vs0.X, vs1.Y - vs0.Y, vs1.Z - vs0.Z}
 			edge2 := Vec3{vs2.X - vs0.X, vs2.Y - vs0.Y, vs2.Z - vs0.Z}
@@ -259,6 +305,11 @@ func main() {
 				oneOverW1 := 1.0 / sv2.W
 				oneOverW2 := 1.0 / sv3.W
 
+				// perspective correct prep for light, same as color
+				l0OverW := l0 / sv1.W
+				l1OverW := l1 / sv2.W
+				l2OverW := l2 / sv3.W
+
 				vec31 := Vec3{
 					X: sv1.X,
 					Y: sv1.Y,
@@ -292,19 +343,23 @@ func main() {
 						inTri, w0, w1, w2 := IsPixelInTriangle(Vec3{float32(x) + 0.5, float32(y) + 0.5, 0}, vec31, vec32, vec33)
 						if inTri {
 
+							base := ToArrayCoordsYUp(x, y, width, height, 1)
+							coord := base * 4
+							zCoord := base
+
 							// inside pixel loop, interpolate and recover
 							interpR := w0*r0 + w1*r1 + w2*r2
 							interpG := w0*g0 + w1*g1 + w2*g2
 							interpB := w0*b0 + w1*b1 + w2*b2
 							interpW := w0*oneOverW0 + w1*oneOverW1 + w2*oneOverW2
 
-							finalR := byte(interpR / interpW)
-							finalG := byte(interpG / interpW)
-							finalB := byte(interpB / interpW)
+							// lighting
+							interpL := w0*l0OverW + w1*l1OverW + w2*l2OverW
+							finalLight := interpL / interpW
 
-							base := ToArrayCoordsYUp(x, y, width, height, 1)
-							coord := base * 4
-							zCoord := base
+							finalR := byte(interpR / interpW * finalLight)
+							finalG := byte(interpG / interpW * finalLight)
+							finalB := byte(interpB / interpW * finalLight)
 
 							interpolatedZ := w0*sv1.Z + w1*sv2.Z + w2*sv3.Z
 							if interpolatedZ >= zbuffer[zCoord] {

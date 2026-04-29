@@ -1,5 +1,7 @@
 package main
 
+import "math"
+
 type Vec2 struct {
 	X, Y float32
 }
@@ -24,6 +26,21 @@ func (a Vec3) Cross(b Vec3) Vec3 {
 
 func (a Vec3) Sub(b Vec3) Vec3 {
 	return Vec3{a.X - b.X, a.Y - b.Y, 0}
+}
+
+func (a Vec3) Normalize() Vec3 {
+
+	x := float64(a.X)
+	y := float64(a.Y)
+	z := float64(a.Z)
+
+	mag := math.Sqrt(x*x + y*y + z*z)
+
+	if mag == 0 {
+		return Vec3{0, 0, 0}
+	}
+
+	return Vec3{float32(x / mag), float32(y / mag), float32(z / mag)}
 }
 
 func (v Vec4) MultMatrix4(m Matrix4) Vec4 {
