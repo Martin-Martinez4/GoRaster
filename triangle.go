@@ -11,6 +11,7 @@ type Triangle struct {
 	points     [3]Vec4
 	textcoords [3]Tex2
 	colors     [3]Vec4
+	lights     [3]Vec3
 	avgDepth   float32
 }
 

@@ -31,6 +31,7 @@ type Polygon struct {
 	Vertices    [MAX_NUM_POLY_VERTICES]Vec4
 	TextCoords  [MAX_NUM_POLY_VERTICES]Tex2
 	Colors      [MAX_NUM_POLY_VERTICES]Vec4
+	Lights      [MAX_NUM_POLY_VERTICES]Vec3
 	NumVertices int
 }
 
@@ -104,16 +105,21 @@ func TriangleFromPolygon(polygon *Polygon, triangles []Triangle, numTriangles *i
 		triangles[i].colors[1] = polygon.Colors[index1]
 		triangles[i].colors[2] = polygon.Colors[index2]
 
+		triangles[i].lights[0] = polygon.Lights[index0]
+		triangles[i].lights[1] = polygon.Lights[index1]
+		triangles[i].lights[2] = polygon.Lights[index2]
+
 	}
 	*numTriangles = polygon.NumVertices - 2
 
 }
 
-func CreatePolygonFromTriangle(v0, v1, v2 Vec4, t0, t1, t2 Tex2, c0, c1, c2 Vec4) Polygon {
+func CreatePolygonFromTriangle(v0, v1, v2 Vec4, t0, t1, t2 Tex2, c0, c1, c2 Vec4, l0, l1, l2 Vec3) Polygon {
 	return Polygon{
 		Vertices:    [10]Vec4{v0, v1, v2},
 		TextCoords:  [10]Tex2{t0, t1, t2},
 		Colors:      [10]Vec4{c0, c1, c2},
+		Lights:      [10]Vec3{l0, l1, l2},
 		NumVertices: 3,
 	}
 }
@@ -123,16 +129,19 @@ func ClipPolygonAgainstPlane(polygon *Polygon, plane PlaneDir) {
 	var insideVertices [MAX_NUM_POLY_VERTICES]Vec4
 	var insideTexCoords [MAX_NUM_POLY_VERTICES]Tex2
 	var insideColors [MAX_NUM_POLY_VERTICES]Vec4
+	var insideLights [MAX_NUM_POLY_VERTICES]Vec3
 	numInsideVertices := 0
 
 	for current := 0; current < polygon.NumVertices; current++ {
 		currentVertex := polygon.Vertices[current]
 		currentTexCoord := polygon.TextCoords[current]
 		currentColor := polygon.Colors[current]
+		currentLight := polygon.Lights[current]
 
 		previousVertex := polygon.Vertices[(current+polygon.NumVertices-1)%polygon.NumVertices]
 		previousTexCoord := polygon.TextCoords[(current+polygon.NumVertices-1)%polygon.NumVertices]
 		previousColor := polygon.Colors[(current+polygon.NumVertices-1)%polygon.NumVertices]
+		previousLight := polygon.Lights[(current+polygon.NumVertices-1)%polygon.NumVertices]
 
 		// replaces the manual dot product against frustum plane normal
 		currentDot := dotClipPlane(currentVertex, plane)
@@ -157,6 +166,11 @@ func ClipPolygonAgainstPlane(polygon *Polygon, plane PlaneDir) {
 				float_lerp(previousColor.Z, currentColor.Z, t),
 				float_lerp(previousColor.W, currentColor.W, t),
 			}
+			insideLights[numInsideVertices] = Vec3{
+				float_lerp(previousLight.X, currentLight.X, t),
+				float_lerp(previousLight.Y, currentLight.Y, t),
+				float_lerp(previousLight.Z, currentLight.Z, t),
+			}
 			numInsideVertices++
 		}
 
@@ -164,6 +178,7 @@ func ClipPolygonAgainstPlane(polygon *Polygon, plane PlaneDir) {
 			insideVertices[numInsideVertices] = currentVertex
 			insideTexCoords[numInsideVertices] = currentTexCoord
 			insideColors[numInsideVertices] = currentColor
+			insideLights[numInsideVertices] = currentLight
 			numInsideVertices++
 		}
 	}
@@ -172,6 +187,7 @@ func ClipPolygonAgainstPlane(polygon *Polygon, plane PlaneDir) {
 		polygon.Vertices[i] = insideVertices[i]
 		polygon.TextCoords[i] = insideTexCoords[i]
 		polygon.Colors[i] = insideColors[i]
+		polygon.Lights[i] = insideLights[i]
 	}
 	polygon.NumVertices = numInsideVertices
 }

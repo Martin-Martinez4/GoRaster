@@ -100,7 +100,7 @@ func main() {
 
 	// aspectRatio := float32(width) / float32(height)
 
-	cameraPos := Vec3{0, 0, 8}
+	cameraPos := Vec3{0, 0, 5}
 	view := ViewMatrix(cameraPos)
 
 	proj := Perspective(zNear, zFar, fovY, aspectX) // correct
@@ -271,6 +271,7 @@ func main() {
 				v0, v1, v2,
 				Tex2{}, Tex2{}, Tex2{},
 				col0, col1, col2,
+				l0, l1, l2,
 			)
 			ClipPolygon(&poly)
 
@@ -284,6 +285,10 @@ func main() {
 				col0 := trianglesAfterClipping[j].colors[0]
 				col1 := trianglesAfterClipping[j].colors[1]
 				col2 := trianglesAfterClipping[j].colors[2]
+
+				l0 := trianglesAfterClipping[j].lights[0]
+				l1 := trianglesAfterClipping[j].lights[1]
+				l2 := trianglesAfterClipping[j].lights[2]
 
 				tri := trianglesAfterClipping[j].points
 
@@ -382,9 +387,6 @@ func main() {
 								(w0*l0OverW.Y + w1*l1OverW.Y + w2*l2OverW.Y) / interpW,
 								(w0*l0OverW.Z + w1*l1OverW.Z + w2*l2OverW.Z) / interpW,
 							}
-
-							// finalLight := interpL / interpW
-							// finalLight := Vec3{interpL.X / interpW, interpL.Y / interpW, interpL.Z / interpW}
 
 							finalR := byte(min(float32(255), interpR/interpW*finalLight.X))
 							finalG := byte(min(float32(255), interpG/interpW*finalLight.Y))
