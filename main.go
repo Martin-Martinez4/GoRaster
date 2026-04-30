@@ -37,23 +37,24 @@ func main() {
 		zbuffer[i] = float32(math.Inf(-1))
 	}
 
-	Red := Vec4{255, 0, 0, 255}
-	Green := Vec4{0, 255, 0, 255}
-	Blue := Vec4{0, 0, 255, 255}
+	// Red := Vec4{255, 0, 0, 255}
+	// White := Vec4{0, 255, 0, 255}
+	// Blue := Vec4{0, 0, 255, 255}
+	White := Vec4{255, 255, 255, 255}
 	// Black := Vec4{0, 0, 0, 255}
 
 	verts := []Vertex{
 		// Front face (z = +3)
-		{Pos: Vec3{-2, -2, 1}, Color: &Green}, // 0
-		{Pos: Vec3{2, -2, 1}, Color: &Green},  // 1
-		{Pos: Vec3{2, 2, 1}, Color: &Green},   // 2
-		{Pos: Vec3{-2, 2, 1}, Color: &Green},  // 3
+		{Pos: Vec3{-2, -2, 1}, Color: &White}, // 0
+		{Pos: Vec3{2, -2, 1}, Color: &White},  // 1
+		{Pos: Vec3{2, 2, 1}, Color: &White},   // 2
+		{Pos: Vec3{-2, 2, 1}, Color: &White},  // 3
 
 		// Back face (z = -3)
-		{Pos: Vec3{-2, -2, -1}, Color: &Blue}, // 4
-		{Pos: Vec3{2, -2, -1}, Color: &Red},   // 5
-		{Pos: Vec3{2, 2, -1}, Color: &Red},    // 6
-		{Pos: Vec3{-2, 2, -1}, Color: &Blue},  // 7
+		{Pos: Vec3{-2, -2, -1}, Color: &White}, // 4
+		{Pos: Vec3{2, -2, -1}, Color: &White},  // 5
+		{Pos: Vec3{2, 2, -1}, Color: &White},   // 6
+		{Pos: Vec3{-2, 2, -1}, Color: &White},  // 7
 	}
 	faces := []uint32{
 		// Front face
@@ -120,7 +121,7 @@ func main() {
 
 	// might delete later
 	vertNormals := make([]Vec3, len(verts))
-	lightValues := make([]float32, len(verts))
+	lightValues := make([]Vec3, len(verts))
 
 	for i := 0; i < len(faces); i += 3 {
 
@@ -152,12 +153,16 @@ func main() {
 	}
 
 	// Baked in lighting; may remove later
-	lightDir := Vec3{0.5, 1, 0.5}.Normalize()
+	lightDir := Vec3{1, 1, 1}.Normalize()
+	lightColor := Vec3{0.5, 0.8, 0.2}
+	ambient := Vec3{0.05, 0.05, 0.1}
 	for i := range verts {
 
 		intensity := max(float32(0), vertNormals[i].Dot(lightDir))
 		// 0.2 ambient, 0.8 max
-		lightValues[i] = 0.2 + intensity*0.8
+		lightValues[i].X = ambient.X + intensity*0.8*lightColor.X
+		lightValues[i].Y = ambient.Y + intensity*0.8*lightColor.Y
+		lightValues[i].Z = ambient.Z + intensity*0.8*lightColor.Z
 	}
 
 	sdl.RunLoop(func() error {
@@ -185,6 +190,23 @@ func main() {
 		// Create world space
 		var model Matrix4
 		MulMatrix4(&model, Translate(0, 0, 0), RotationAlongY(rotationY))
+
+		// dynamic lighting
+		for i := range vertNormals {
+			// normals only need rotation, not translation
+			// use model matrix but ignore the translation component
+			worldNormal := model.MultVec4(Vec4{vertNormals[i].X, vertNormals[i].Y, vertNormals[i].Z, 0})
+			// W=0 means translation is ignored
+
+			lightDir := Vec3{0.5, 1, 0.5}.Normalize()
+			intensity := max(float32(0), Vec3{worldNormal.X, worldNormal.Y, worldNormal.Z}.Dot(lightDir))
+
+			// 0.2 ambient
+			// 0.8 lightColor
+			lightValues[i].X = 0.2 + intensity*0.8*lightColor.X
+			lightValues[i].Y = 0.2 + intensity*0.8*lightColor.Y
+			lightValues[i].Z = 0.2 + intensity*0.8*lightColor.Z
+		}
 
 		// Create view space
 		var temp Matrix4
@@ -306,9 +328,9 @@ func main() {
 				oneOverW2 := 1.0 / sv3.W
 
 				// perspective correct prep for light, same as color
-				l0OverW := l0 / sv1.W
-				l1OverW := l1 / sv2.W
-				l2OverW := l2 / sv3.W
+				l0OverW := Vec3{l0.X / sv1.W, l0.Y / sv1.W, l0.Z / sv1.W}
+				l1OverW := Vec3{l1.X / sv2.W, l1.Y / sv2.W, l1.Z / sv2.W}
+				l2OverW := Vec3{l2.X / sv3.W, l2.Y / sv3.W, l2.Z / sv3.W}
 
 				vec31 := Vec3{
 					X: sv1.X,
@@ -354,12 +376,19 @@ func main() {
 							interpW := w0*oneOverW0 + w1*oneOverW1 + w2*oneOverW2
 
 							// lighting
-							interpL := w0*l0OverW + w1*l1OverW + w2*l2OverW
-							finalLight := interpL / interpW
+							// interpL := w0*l0OverW + w1*l1OverW + w2*l2OverW
+							finalLight := Vec3{
+								(w0*l0OverW.X + w1*l1OverW.X + w2*l2OverW.X) / interpW,
+								(w0*l0OverW.Y + w1*l1OverW.Y + w2*l2OverW.Y) / interpW,
+								(w0*l0OverW.Z + w1*l1OverW.Z + w2*l2OverW.Z) / interpW,
+							}
 
-							finalR := byte(interpR / interpW * finalLight)
-							finalG := byte(interpG / interpW * finalLight)
-							finalB := byte(interpB / interpW * finalLight)
+							// finalLight := interpL / interpW
+							// finalLight := Vec3{interpL.X / interpW, interpL.Y / interpW, interpL.Z / interpW}
+
+							finalR := byte(min(float32(255), interpR/interpW*finalLight.X))
+							finalG := byte(min(float32(255), interpG/interpW*finalLight.Y))
+							finalB := byte(min(float32(255), interpB/interpW*finalLight.Z))
 
 							interpolatedZ := w0*sv1.Z + w1*sv2.Z + w2*sv3.Z
 							if interpolatedZ >= zbuffer[zCoord] {
