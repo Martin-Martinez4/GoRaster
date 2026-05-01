@@ -109,6 +109,10 @@ func TriangleFromPolygon(polygon *Polygon, triangles []Triangle, numTriangles *i
 		triangles[i].lights[1] = polygon.Lights[index1]
 		triangles[i].lights[2] = polygon.Lights[index2]
 
+		triangles[i].textcoords[0] = Tex2{U: polygon.TextCoords[index0].U, V: polygon.TextCoords[index0].V}
+		triangles[i].textcoords[1] = Tex2{U: polygon.TextCoords[index1].U, V: polygon.TextCoords[index1].V}
+		triangles[i].textcoords[2] = Tex2{U: polygon.TextCoords[index2].U, V: polygon.TextCoords[index2].V}
+
 	}
 	*numTriangles = polygon.NumVertices - 2
 
@@ -154,12 +158,14 @@ func ClipPolygonAgainstPlane(polygon *Polygon, plane PlaneDir) {
 				float_lerp(previousVertex.X, currentVertex.X, t),
 				float_lerp(previousVertex.Y, currentVertex.Y, t),
 				float_lerp(previousVertex.Z, currentVertex.Z, t),
-				float_lerp(previousVertex.W, currentVertex.W, t), // W interpolated correctly
+				float_lerp(previousVertex.W, currentVertex.W, t),
 			}
+
 			insideTexCoords[numInsideVertices] = Tex2{
 				float_lerp(previousTexCoord.U, currentTexCoord.U, t),
 				float_lerp(previousTexCoord.V, currentTexCoord.V, t),
 			}
+
 			insideColors[numInsideVertices] = Vec4{
 				float_lerp(previousColor.X, currentColor.X, t),
 				float_lerp(previousColor.Y, currentColor.Y, t),
@@ -175,6 +181,7 @@ func ClipPolygonAgainstPlane(polygon *Polygon, plane PlaneDir) {
 		}
 
 		if currentDot > 0 {
+
 			insideVertices[numInsideVertices] = currentVertex
 			insideTexCoords[numInsideVertices] = currentTexCoord
 			insideColors[numInsideVertices] = currentColor
@@ -186,6 +193,7 @@ func ClipPolygonAgainstPlane(polygon *Polygon, plane PlaneDir) {
 	for i := 0; i < numInsideVertices; i++ {
 		polygon.Vertices[i] = insideVertices[i]
 		polygon.TextCoords[i] = insideTexCoords[i]
+
 		polygon.Colors[i] = insideColors[i]
 		polygon.Lights[i] = insideLights[i]
 	}

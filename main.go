@@ -16,8 +16,8 @@ func main() {
 		panic(err)
 	}
 
-	width := 1080
-	height := 900
+	width := 1280
+	height := 720
 
 	window, renderer, err := sdl.CreateWindowAndRenderer("Hello World!", width, height, 0)
 	if err != nil {
@@ -43,43 +43,70 @@ func main() {
 	White := Vec4{255, 255, 255, 255}
 	// Black := Vec4{0, 0, 0, 255}
 
-	verts := []Vertex{
-		// Front face (z = +3)
-		{Pos: Vec3{-2, -2, 1}, Color: &White}, // 0
-		{Pos: Vec3{2, -2, 1}, Color: &White},  // 1
-		{Pos: Vec3{2, 2, 1}, Color: &White},   // 2
-		{Pos: Vec3{-2, 2, 1}, Color: &White},  // 3
+	textureImg := LoadTexture("./assets/textures/Bricks103_1K-JPG_Color.jpg")
 
-		// Back face (z = -3)
-		{Pos: Vec3{-2, -2, -1}, Color: &White}, // 4
-		{Pos: Vec3{2, -2, -1}, Color: &White},  // 5
-		{Pos: Vec3{2, 2, -1}, Color: &White},   // 6
-		{Pos: Vec3{-2, 2, -1}, Color: &White},  // 7
+	verts := []Vertex{
+		// Front face (z = +1)
+		{Pos: Vec3{-0.5, -1, 1}, Color: &White, UV: &Tex2{0, 0}}, // 0
+		{Pos: Vec3{0.5, -1, 1}, Color: &White, UV: &Tex2{1, 0}},  // 1
+		{Pos: Vec3{0.5, 1, 1}, Color: &White, UV: &Tex2{1, 1}},   // 2
+		{Pos: Vec3{-0.5, 1, 1}, Color: &White, UV: &Tex2{0, 1}},  // 3
+
+		// Back face (z = -1)
+		{Pos: Vec3{0.5, -1, -1}, Color: &White, UV: &Tex2{0, 0}},  // 4
+		{Pos: Vec3{-0.5, -1, -1}, Color: &White, UV: &Tex2{1, 0}}, // 5
+		{Pos: Vec3{-0.5, 1, -1}, Color: &White, UV: &Tex2{1, 1}},  // 6
+		{Pos: Vec3{0.5, 1, -1}, Color: &White, UV: &Tex2{0, 1}},   // 7
+
+		// Left face (x = -2)
+		{Pos: Vec3{-0.5, -1, -1}, Color: &White, UV: &Tex2{0, 0}}, // 8
+		{Pos: Vec3{-0.5, -1, 1}, Color: &White, UV: &Tex2{1, 0}},  // 9
+		{Pos: Vec3{-0.5, 1, 1}, Color: &White, UV: &Tex2{1, 1}},   // 10
+		{Pos: Vec3{-0.5, 1, -1}, Color: &White, UV: &Tex2{0, 1}},  // 11
+
+		// Right face (x = +2)
+		{Pos: Vec3{0.5, -1, 1}, Color: &White, UV: &Tex2{0, 0}},  // 12
+		{Pos: Vec3{0.5, -1, -1}, Color: &White, UV: &Tex2{1, 0}}, // 13
+		{Pos: Vec3{0.5, 1, -1}, Color: &White, UV: &Tex2{1, 1}},  // 14
+		{Pos: Vec3{0.5, 1, 1}, Color: &White, UV: &Tex2{0, 1}},   // 15
+
+		// Top face (y = -2
+		{Pos: Vec3{-0.5, -1, -1}, Color: &White, UV: &Tex2{0, 0}}, // 16
+		{Pos: Vec3{0.5, -1, -1}, Color: &White, UV: &Tex2{1, 0}},  // 17
+		{Pos: Vec3{0.5, -1, 1}, Color: &White, UV: &Tex2{1, 1}},   // 18
+		{Pos: Vec3{-1, -1, 1}, Color: &White, UV: &Tex2{0, 1}},    // 19
+
+		// Bottom face (y = +2)
+		{Pos: Vec3{-0.5, 1, 1}, Color: &White, UV: &Tex2{0, 0}},  // 20
+		{Pos: Vec3{0.5, 1, 1}, Color: &White, UV: &Tex2{1, 0}},   // 21
+		{Pos: Vec3{0.5, 1, -1}, Color: &White, UV: &Tex2{1, 1}},  // 22
+		{Pos: Vec3{-0.5, 1, -1}, Color: &White, UV: &Tex2{0, 1}}, // 23
 	}
+
 	faces := []uint32{
-		// Front face
+		// Front
 		0, 1, 2,
 		0, 2, 3,
 
-		// Back face
-		5, 4, 7,
-		5, 7, 6,
+		// Back
+		4, 5, 6,
+		4, 6, 7,
 
-		// Left face
-		4, 0, 3,
-		4, 3, 7,
+		// Left
+		8, 9, 10,
+		8, 10, 11,
 
-		// Right face
-		1, 5, 6,
-		1, 6, 2,
+		// Right
+		12, 13, 14,
+		12, 14, 15,
 
-		// Top face
-		4, 5, 1,
-		4, 1, 0,
+		// Top
+		16, 17, 18,
+		16, 18, 19,
 
-		// Bottom face
-		3, 2, 6,
-		3, 6, 7,
+		// Bottom
+		20, 21, 22,
+		20, 22, 23,
 	}
 
 	texture, err := renderer.CreateTexture(
@@ -100,7 +127,7 @@ func main() {
 
 	// aspectRatio := float32(width) / float32(height)
 
-	cameraPos := Vec3{0, 0, 5}
+	cameraPos := Vec3{0, 0, 10}
 	view := ViewMatrix(cameraPos)
 
 	proj := Perspective(zNear, zFar, fovY, aspectX) // correct
@@ -154,7 +181,7 @@ func main() {
 
 	// Baked in lighting; may remove later
 	lightDir := Vec3{1, 1, 1}.Normalize()
-	lightColor := Vec3{0.5, 0.8, 0.2}
+	lightColor := Vec3{0.8, 0.5, 0.2}
 	ambient := Vec3{0.05, 0.05, 0.1}
 	for i := range verts {
 
@@ -267,9 +294,13 @@ func main() {
 			col1 := *verts[faces[i+1]].Color
 			col2 := *verts[faces[i+2]].Color
 
+			uv0 := *verts[faces[i]].UV
+			uv1 := *verts[faces[i+1]].UV
+			uv2 := *verts[faces[i+2]].UV
+
 			poly := CreatePolygonFromTriangle(
 				v0, v1, v2,
-				Tex2{}, Tex2{}, Tex2{},
+				uv0, uv1, uv2,
 				col0, col1, col2,
 				l0, l1, l2,
 			)
@@ -362,40 +393,62 @@ func main() {
 				maxX = min(width-1, maxX)
 				maxY = min(height-1, maxY)
 
+				uv0 := trianglesAfterClipping[j].textcoords[0]
+				uv1 := trianglesAfterClipping[j].textcoords[1]
+				uv2 := trianglesAfterClipping[j].textcoords[2]
+
+				u0OverW := uv0.U / sv1.W
+				v0OverW := uv0.V / sv1.W
+
+				u1OverW := uv1.U / sv2.W
+				v1OverW := uv1.V / sv2.W
+
+				u2OverW := uv2.U / sv3.W
+				v2OverW := uv2.V / sv3.W
+
 				// screen space stuff
+
+				area := edge(vec31, vec32, vec33)
+				invArea := 1.0 / area
 				for y := minY; y <= maxY; y++ {
 					for x := minX; x <= maxX; x++ {
 
 						// Create vec from center of pixel
-						inTri, w0, w1, w2 := IsPixelInTriangle(Vec3{float32(x) + 0.5, float32(y) + 0.5, 0}, vec31, vec32, vec33)
+						inTri, w0, w1, w2 := IsPixelInTriangle(Vec3{float32(x) + 0.5, float32(y) + 0.5, 0}, vec31, vec32, vec33, invArea)
 						if inTri {
 
 							base := ToArrayCoordsYUp(x, y, width, height, 1)
 							coord := base * 4
 							zCoord := base
 
-							// inside pixel loop, interpolate and recover
-							interpR := w0*r0 + w1*r1 + w2*r2
-							interpG := w0*g0 + w1*g1 + w2*g2
-							interpB := w0*b0 + w1*b1 + w2*b2
-							interpW := w0*oneOverW0 + w1*oneOverW1 + w2*oneOverW2
-
-							// lighting
-							// interpL := w0*l0OverW + w1*l1OverW + w2*l2OverW
-							finalLight := Vec3{
-								(w0*l0OverW.X + w1*l1OverW.X + w2*l2OverW.X) / interpW,
-								(w0*l0OverW.Y + w1*l1OverW.Y + w2*l2OverW.Y) / interpW,
-								(w0*l0OverW.Z + w1*l1OverW.Z + w2*l2OverW.Z) / interpW,
-							}
-
-							finalR := byte(min(float32(255), interpR/interpW*finalLight.X))
-							finalG := byte(min(float32(255), interpG/interpW*finalLight.Y))
-							finalB := byte(min(float32(255), interpB/interpW*finalLight.Z))
-
 							interpolatedZ := w0*sv1.Z + w1*sv2.Z + w2*sv3.Z
 							if interpolatedZ >= zbuffer[zCoord] {
 
 								zbuffer[zCoord] = interpolatedZ
+
+								// inside pixel loop, interpolate and recover
+								interpR := w0*r0 + w1*r1 + w2*r2
+								interpG := w0*g0 + w1*g1 + w2*g2
+								interpB := w0*b0 + w1*b1 + w2*b2
+								interpW := w0*oneOverW0 + w1*oneOverW1 + w2*oneOverW2
+								invInterpW := 1 / interpW
+
+								// lighting
+								// interpL := w0*l0OverW + w1*l1OverW + w2*l2OverW
+								finalLightR := (w0*l0OverW.X + w1*l1OverW.X + w2*l2OverW.X) * invInterpW
+								finalLightG := (w0*l0OverW.Y + w1*l1OverW.Y + w2*l2OverW.Y) * invInterpW
+								finalLightB := (w0*l0OverW.Z + w1*l1OverW.Z + w2*l2OverW.Z) * invInterpW
+
+								finalU := (w0*u0OverW + w1*u1OverW + w2*u2OverW) * invInterpW
+								finalV := (w0*v0OverW + w1*v1OverW + w2*v2OverW) * invInterpW
+
+								texR, texG, texB, _ := SampleTexture(textureImg, finalU, finalV)
+
+								// 0.003921569 = 1/255
+								finalR := byte(min(float32(255), float32(texR)*(float32(interpR/interpW)*0.003921569)*finalLightR))
+
+								finalG := byte(min(float32(255), float32(texG)*(float32(interpG/interpW)*0.003921569)*finalLightG))
+								finalB := byte(min(float32(255), float32(texB)*(float32(interpB/interpW)*0.003921569)*finalLightB))
 
 								pixels[coord] = byte(finalR)
 								pixels[coord+1] = byte(finalG)

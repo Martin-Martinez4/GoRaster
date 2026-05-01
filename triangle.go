@@ -19,13 +19,11 @@ func edge(p, a, b Vec3) float32 {
 	return (p.X-a.X)*(b.Y-a.Y) - (p.Y-a.Y)*(b.X-a.X)
 }
 
-func IsPixelInTriangle(p Vec3, v1, v2, v3 Vec3) (bool, float32, float32, float32) {
+func IsPixelInTriangle(p Vec3, v1, v2, v3 Vec3, invArea float32) (bool, float32, float32, float32) {
 
-	area := edge(v1, v2, v3)
-
-	w0 := edge(p, v2, v3) / area
-	w1 := edge(p, v3, v1) / area
-	w2 := edge(p, v1, v2) / area
+	w0 := edge(p, v2, v3) * invArea
+	w1 := edge(p, v3, v1) * invArea
+	w2 := edge(p, v1, v2) * invArea
 
 	return w0 >= 0 && w1 >= 0 && w2 >= 0, w0, w1, w2
 
