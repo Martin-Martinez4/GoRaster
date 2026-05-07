@@ -153,23 +153,129 @@ func CollectObjData(bufScanner *bufio.Scanner, objSD *OBJSourceData) *ObjData {
 					panic("malformed vert index on face")
 				}
 
-				key := objAttribsTuple{V: int(d0 - 1), Vt: -1, Vn: -1}
+				var d0Int int
+				if d0 < 0 {
+					d0Int = int(d0) + int(int64(len(objSD.Positions)))
+				} else {
+					d0Int = int(d0 - 1)
+				}
+
+				key := objAttribsTuple{V: d0Int, Vt: -1, Vn: -1}
 				indx, ok := m[key]
 
 				if !ok {
 					m[key] = len(verts)
 					faces = append(faces, uint32(len(verts)))
-					verts = append(verts, Vertex{Pos: objSD.Positions[int(d0-1)]})
+					verts = append(verts, Vertex{Pos: objSD.Positions[d0Int]})
 				} else {
-					fmt.Println("Reused")
 					faces = append(faces, uint32(indx))
 				}
 				// only vert
 			case 2:
 				// vert and texture
+				d0, err := (strconv.ParseInt(data[0], 10, 0))
+				if err != nil {
+					panic("malformed vert index on face")
+				}
+
+				var d0Int int
+				if d0 < 0 {
+					d0Int = int(d0) + int(int64(len(objSD.Positions)))
+				} else {
+					d0Int = int(d0 - 1)
+				}
+
+				d1, err := (strconv.ParseInt(data[1], 10, 0))
+				if err != nil {
+					panic("malformed vert index on face")
+				}
+				var d1Int int
+				if d1 < 0 {
+					d1Int = int(d1) + int(int64(len(objSD.UVs)))
+				} else {
+					d1Int = int(d1 - 1)
+				}
+
+				fmt.Printf("d0: %d, d1: %d\n", d0, d1)
+
+				key := objAttribsTuple{V: d0Int, Vt: d1Int, Vn: -1}
+				indx, ok := m[key]
+
+				if !ok {
+					m[key] = len(verts)
+					faces = append(faces, uint32(len(verts)))
+					verts = append(verts, Vertex{Pos: objSD.Positions[d0Int], UV: &objSD.UVs[d1Int]})
+				} else {
+					faces = append(faces, uint32(indx))
+				}
 			case 3:
 				// vert, texture, and normal
 				// middle could be empty
+				d0, err := strconv.ParseInt(data[0], 10, 0)
+				if err != nil {
+					panic("malformed vert index on face")
+				}
+
+				var d0Int int
+				if d0 < 0 {
+					d0Int = int(d0) + len(objSD.Positions)
+				} else {
+					d0Int = int(d0 - 1)
+				}
+
+				var d1Int = -1
+				if data[1] != "" {
+					d1, err := strconv.ParseInt(data[1], 10, 0)
+					if err != nil {
+						panic("malformed uv index on face")
+					}
+
+					if d1 < 0 {
+						d1Int = int(d1) + len(objSD.UVs)
+					} else {
+						d1Int = int(d1 - 1)
+					}
+				}
+
+				var d2Int = -1
+				if len(data) > 2 && data[2] != "" {
+					d2, err := strconv.ParseInt(data[2], 10, 0)
+					if err != nil {
+						panic("malformed normal index on face")
+					}
+
+					if d2 < 0 {
+						d2Int = int(d2) + len(objSD.Normals)
+					} else {
+						d2Int = int(d2 - 1)
+					}
+				}
+
+				var uv *Tex2
+				if d1Int >= 0 {
+					uv = &objSD.UVs[d1Int]
+				}
+
+				var normal *Vec3
+				if d2Int >= 0 {
+					normal = &objSD.Normals[d2Int]
+				}
+
+				key := objAttribsTuple{V: d0Int, Vt: d1Int, Vn: d2Int}
+				indx, ok := m[key]
+
+				if !ok {
+					m[key] = len(verts)
+					faces = append(faces, uint32(len(verts)))
+
+					verts = append(verts, Vertex{
+						Pos:    objSD.Positions[d0Int],
+						UV:     uv,
+						Normal: normal,
+					})
+				} else {
+					faces = append(faces, uint32(indx))
+				}
 			}
 		}
 
