@@ -15,6 +15,11 @@ type OBJSourceData struct {
 	Normals   []Vec3
 }
 
+type ObjData struct {
+	Verts []Vertex
+	Faces []uint32
+}
+
 func CollectAttributes(bufScanner *bufio.Scanner) OBJSourceData {
 	var positions []Vec3
 	var uvs []Tex2
@@ -102,7 +107,84 @@ func CollectAttributes(bufScanner *bufio.Scanner) OBJSourceData {
 	}
 }
 
-func readObjFile(path string) {
+type objAttribsTuple struct {
+	V, Vt, Vn int
+}
+
+func CollectObjData(bufScanner *bufio.Scanner, objSD *OBJSourceData) *ObjData {
+	// Keep track of position, uvs, and normals index
+
+	verts := []Vertex{}
+	faces := []uint32{}
+
+	m := map[objAttribsTuple]int{}
+
+	for bufScanner.Scan() {
+		line := bufScanner.Text()
+
+		if len(line) < 3 {
+			continue
+		}
+
+		prefix := line[0:2]
+
+		if prefix != "f " {
+			continue
+		}
+
+		// split at space
+		// for each of those split at /
+		spaceSplit := strings.Split(line[2:], " ")
+
+		if len(spaceSplit) != 3 {
+			panic("only tris supported at this time")
+		}
+
+		for _, ss := range spaceSplit {
+
+			data := strings.Split(ss, "/")
+
+			fmt.Printf("data: %v\n", data)
+
+			switch len(data) {
+			case 1:
+				d0, err := (strconv.ParseInt(data[0], 10, 0))
+				if err != nil {
+					panic("malformed vert index on face")
+				}
+
+				key := objAttribsTuple{V: int(d0 - 1), Vt: -1, Vn: -1}
+				indx, ok := m[key]
+
+				if !ok {
+					m[key] = len(verts)
+					faces = append(faces, uint32(len(verts)))
+					verts = append(verts, Vertex{Pos: objSD.Positions[int(d0-1)]})
+				} else {
+					fmt.Println("Reused")
+					faces = append(faces, uint32(indx))
+				}
+				// only vert
+			case 2:
+				// vert and texture
+			case 3:
+				// vert, texture, and normal
+				// middle could be empty
+			}
+		}
+
+		// if new combo create new record
+
+	}
+
+	return &ObjData{
+		Faces: faces,
+		Verts: nil,
+	}
+
+}
+
+func readObjFile(path string) *ObjData {
 	f, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -111,6 +193,12 @@ func readObjFile(path string) {
 
 	scanner := bufio.NewScanner(f)
 
-	CollectAttributes(scanner)
+	objSourceData := CollectAttributes(scanner)
+
+	scanner = bufio.NewScanner(f)
+
+	objData := CollectObjData(scanner, &objSourceData)
+
+	return objData
 
 }
