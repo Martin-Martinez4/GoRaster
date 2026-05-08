@@ -39,7 +39,7 @@ func CollectAttributes(bufScanner *bufio.Scanner) OBJSourceData {
 			// vertex
 			pos := strings.Split(line[2:], " ")
 
-			fmt.Printf("pos: %v\n", pos)
+			// fmt.Printf("pos: %v\n", pos)
 			f0, err := strconv.ParseFloat(pos[0], 32)
 			if err != nil {
 				fmt.Println("Could not parse string to vertex position")
@@ -57,7 +57,7 @@ func CollectAttributes(bufScanner *bufio.Scanner) OBJSourceData {
 			}
 
 			positions = append(positions, Vec3{float32(f0), float32(f1), float32(f2)})
-			fmt.Printf("positions: %v\n", positions[len(positions)-1])
+			// fmt.Printf("positions: %v\n", positions[len(positions)-1])
 
 		case "vn":
 			// normals
@@ -111,6 +111,7 @@ type objAttribsTuple struct {
 	V, Vt, Vn int
 }
 
+// needs to be refactored
 func CollectObjData(bufScanner *bufio.Scanner, objSD *OBJSourceData) *ObjData {
 	// Keep track of position, uvs, and normals index
 
@@ -143,8 +144,6 @@ func CollectObjData(bufScanner *bufio.Scanner, objSD *OBJSourceData) *ObjData {
 		for _, ss := range spaceSplit {
 
 			data := strings.Split(ss, "/")
-
-			fmt.Printf("data: %v\n", data)
 
 			switch len(data) {
 			case 1:
@@ -285,12 +284,12 @@ func CollectObjData(bufScanner *bufio.Scanner, objSD *OBJSourceData) *ObjData {
 
 	return &ObjData{
 		Faces: faces,
-		Verts: nil,
+		Verts: verts,
 	}
 
 }
 
-func readObjFile(path string) *ObjData {
+func ReadObjFile(path string) *ObjData {
 	f, err := os.Open(path)
 	if err != nil {
 		log.Fatal(err)
@@ -301,6 +300,7 @@ func readObjFile(path string) *ObjData {
 
 	objSourceData := CollectAttributes(scanner)
 
+	f.Seek(0, 0)
 	scanner = bufio.NewScanner(f)
 
 	objData := CollectObjData(scanner, &objSourceData)

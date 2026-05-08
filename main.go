@@ -45,68 +45,12 @@ func main() {
 
 	textureImg := LoadTexture("./assets/textures/Bricks103_1K-JPG_Color.jpg")
 
-	verts := []Vertex{
-		// Front face (z = +1)
-		{Pos: Vec3{-0.5, -1, 1}, Color: &White, UV: &Tex2{0, 0}}, // 0
-		{Pos: Vec3{0.5, -1, 1}, Color: &White, UV: &Tex2{1, 0}},  // 1
-		{Pos: Vec3{0.5, 1, 1}, Color: &White, UV: &Tex2{1, 1}},   // 2
-		{Pos: Vec3{-0.5, 1, 1}, Color: &White, UV: &Tex2{0, 1}},  // 3
+	objData := ReadObjFile("./assets/obj/Untitled.obj")
+	faces := objData.Faces
+	verts := objData.Verts
 
-		// Back face (z = -1)
-		{Pos: Vec3{0.5, -1, -1}, Color: &White, UV: &Tex2{0, 0}},  // 4
-		{Pos: Vec3{-0.5, -1, -1}, Color: &White, UV: &Tex2{1, 0}}, // 5
-		{Pos: Vec3{-0.5, 1, -1}, Color: &White, UV: &Tex2{1, 1}},  // 6
-		{Pos: Vec3{0.5, 1, -1}, Color: &White, UV: &Tex2{0, 1}},   // 7
-
-		// Left face (x = -2)
-		{Pos: Vec3{-0.5, -1, -1}, Color: &White, UV: &Tex2{0, 0}}, // 8
-		{Pos: Vec3{-0.5, -1, 1}, Color: &White, UV: &Tex2{1, 0}},  // 9
-		{Pos: Vec3{-0.5, 1, 1}, Color: &White, UV: &Tex2{1, 1}},   // 10
-		{Pos: Vec3{-0.5, 1, -1}, Color: &White, UV: &Tex2{0, 1}},  // 11
-
-		// Right face (x = +2)
-		{Pos: Vec3{0.5, -1, 1}, Color: &White, UV: &Tex2{0, 0}},  // 12
-		{Pos: Vec3{0.5, -1, -1}, Color: &White, UV: &Tex2{1, 0}}, // 13
-		{Pos: Vec3{0.5, 1, -1}, Color: &White, UV: &Tex2{1, 1}},  // 14
-		{Pos: Vec3{0.5, 1, 1}, Color: &White, UV: &Tex2{0, 1}},   // 15
-
-		// Top face (y = -2
-		{Pos: Vec3{-0.5, -1, -1}, Color: &White, UV: &Tex2{0, 0}}, // 16
-		{Pos: Vec3{0.5, -1, -1}, Color: &White, UV: &Tex2{1, 0}},  // 17
-		{Pos: Vec3{0.5, -1, 1}, Color: &White, UV: &Tex2{1, 1}},   // 18
-		{Pos: Vec3{-1, -1, 1}, Color: &White, UV: &Tex2{0, 1}},    // 19
-
-		// Bottom face (y = +2)
-		{Pos: Vec3{-0.5, 1, 1}, Color: &White, UV: &Tex2{0, 0}},  // 20
-		{Pos: Vec3{0.5, 1, 1}, Color: &White, UV: &Tex2{1, 0}},   // 21
-		{Pos: Vec3{0.5, 1, -1}, Color: &White, UV: &Tex2{1, 1}},  // 22
-		{Pos: Vec3{-0.5, 1, -1}, Color: &White, UV: &Tex2{0, 1}}, // 23
-	}
-
-	faces := []uint32{
-		// Front
-		0, 1, 2,
-		0, 2, 3,
-
-		// Back
-		4, 5, 6,
-		4, 6, 7,
-
-		// Left
-		8, 9, 10,
-		8, 10, 11,
-
-		// Right
-		12, 13, 14,
-		12, 14, 15,
-
-		// Top
-		16, 17, 18,
-		16, 18, 19,
-
-		// Bottom
-		20, 21, 22,
-		20, 22, 23,
+	for i := range verts {
+		verts[i].Color = &White
 	}
 
 	texture, err := renderer.CreateTexture(
@@ -125,12 +69,10 @@ func main() {
 	zNear := float32(0.1)
 	zFar := float32(100.0)
 
-	// aspectRatio := float32(width) / float32(height)
-
 	cameraPos := Vec3{0, 0, 10}
 	view := ViewMatrix(cameraPos)
 
-	proj := Perspective(zNear, zFar, fovY, aspectX) // correct
+	proj := Perspective(zNear, zFar, fovY, aspectX)
 
 	initFrustumPlanes(fovY, fovx, zNear, zFar)
 
@@ -446,7 +388,6 @@ func main() {
 
 								// 0.003921569 = 1/255
 								finalR := byte(min(float32(255), float32(texR)*(float32(interpR/interpW)*0.003921569)*finalLightR))
-
 								finalG := byte(min(float32(255), float32(texG)*(float32(interpG/interpW)*0.003921569)*finalLightG))
 								finalB := byte(min(float32(255), float32(texB)*(float32(interpB/interpW)*0.003921569)*finalLightB))
 
