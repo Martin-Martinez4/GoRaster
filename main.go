@@ -229,25 +229,25 @@ func main() {
 		for i := 0; i < len(faces); i += 3 {
 
 			// back face culling
-			// vs0 := viewVerts[faces[i]]
-			// vs1 := viewVerts[faces[i+1]]
-			// vs2 := viewVerts[faces[i+2]]
+			vs0 := viewVerts[faces[i]]
+			vs1 := viewVerts[faces[i+1]]
+			vs2 := viewVerts[faces[i+2]]
 
 			l0 := lightValues[faces[i]]
 			l1 := lightValues[faces[i+1]]
 			l2 := lightValues[faces[i+2]]
 
-			// edge1 := Vec3{vs1.X - vs0.X, vs1.Y - vs0.Y, vs1.Z - vs0.Z}
-			// edge2 := Vec3{vs2.X - vs0.X, vs2.Y - vs0.Y, vs2.Z - vs0.Z}
+			edge1 := Vec3{vs1.X - vs0.X, vs1.Y - vs0.Y, vs1.Z - vs0.Z}
+			edge2 := Vec3{vs2.X - vs0.X, vs2.Y - vs0.Y, vs2.Z - vs0.Z}
 
-			// normal := edge1.Cross(edge2)
+			normal := edge1.Cross(edge2)
 
 			// in view space camera is at origin so camera ray is just -vertex
-			// cameraRay := Vec3{-vs0.X, -vs0.Y, -vs0.Z}
+			cameraRay := Vec3{-vs0.X, -vs0.Y, -vs0.Z}
 
-			// if normal.Dot(cameraRay) <= 0 {
-			// 	continue
-			// }
+			if normal.Dot(cameraRay) <= 0 {
+				continue
+			}
 
 			v0 := clipSpaceVerts[faces[i]]
 			v1 := clipSpaceVerts[faces[i+1]]
