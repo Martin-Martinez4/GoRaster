@@ -52,9 +52,9 @@ func main() {
 	for i := range verts {
 		verts[i].Color = &White
 
-		verts[i].Pos.X *= 4
-		verts[i].Pos.Y *= 8
-		verts[i].Pos.Z *= 4
+		// verts[i].Pos.X *= 4
+		// verts[i].Pos.Y *= 8
+		// verts[i].Pos.Z *= 4
 	}
 
 	texture, err := renderer.CreateTexture(
@@ -99,7 +99,7 @@ func main() {
 	}
 
 	// Baked in lighting; may remove later
-	lightDir := Vec3{1, 1, 1}.Normalize()
+	lightDir := Vec3{10, 10, 10}.Normalize()
 	lightColor := Vec3{0.8, 0.5, 0.2}
 	ambient := Vec3{0.05, 0.05, 0.1}
 	for i := range verts {
@@ -114,9 +114,10 @@ func main() {
 	idMatrix := IdentityMatrix()
 	// rotation := IdentityMatrix()
 	rotationAmount := 5 * float32(math.Pi/180)
+	speed := float32(5.0)
 	// yaw := float32(0.0)
 
-	camera := Camera{Position: Vec3{0, 0, 75}, Yaw: 0.0, Pitch: 0.0}
+	camera := Camera{Position: Vec3{156, 0, -4}, Yaw: 0.0, Pitch: 0.0}
 
 	// cameraPos := Vec3{0, 0, 75}
 
@@ -146,14 +147,19 @@ func main() {
 				case sdl.K_A:
 					camera.Yaw += rotationAmount
 				case sdl.K_D:
-
 					camera.Yaw -= rotationAmount
+
+				// case sdl.K_UP:
+				// 	camera.Pitch += rotationAmount
+				// case sdl.K_DOWN:
+				// 	camera.Pitch -= rotationAmount
+
 				case sdl.K_W:
-					camera.Position.Z -= float32(math.Cos((float64(camera.Yaw)))) * 10
-					camera.Position.X -= float32(math.Sin((float64(camera.Yaw)))) * 10
+					camera.Position.Z -= float32(math.Cos((float64(camera.Yaw)))) * speed
+					camera.Position.X -= float32(math.Sin((float64(camera.Yaw)))) * speed
 				case sdl.K_S:
-					camera.Position.Z += float32(math.Cos((float64(camera.Yaw)))) * 10
-					camera.Position.X += float32(math.Sin((float64(camera.Yaw)))) * 10
+					camera.Position.Z += float32(math.Cos((float64(camera.Yaw)))) * speed
+					camera.Position.X += float32(math.Sin((float64(camera.Yaw)))) * speed
 				}
 
 			}
@@ -165,10 +171,12 @@ func main() {
 		// Create world space
 		// angle := 90 * float32(math.Pi/180)
 		translation := ViewMatrix(camera.Position)
-		// rotation := RotationAlongX(-float32(math.Pi / 2))
+		var rotation Matrix4
+		MulMatrix4(&rotation, RotationAlongY(camera.Yaw), RotationAlongX(camera.Pitch))
 
 		var view Matrix4
-		MulMatrix4(&view, RotationAlongY(camera.Yaw), &translation)
+
+		MulMatrix4(&view, &rotation, &translation)
 
 		var model Matrix4
 		MulMatrix4(&model, &idMatrix, &idMatrix)
@@ -431,6 +439,7 @@ func main() {
 		}
 
 		renderer.DebugText(10, 10, fmt.Sprintf("FPS: %.0f", fps))
+		renderer.DebugText(10, 20, fmt.Sprintf("Position: %.0f, %0.f, %0.f", camera.Position.X, camera.Position.Y, camera.Position.Z))
 		renderer.Present()
 
 		// rotationY += 1.0 * deltaTime
