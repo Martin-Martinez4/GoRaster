@@ -227,3 +227,30 @@ func dotClipPlane(v Vec4, plane PlaneDir) float32 {
 	}
 	return 0
 }
+
+func ClipToScreenSpace(tri0, tri1, tri2 Vec4, width, height int) (Vec4, Vec4, Vec4) {
+	divided0 := PerspectiveDivide(tri0)
+	divided1 := PerspectiveDivide(tri1)
+	divided2 := PerspectiveDivide(tri2)
+
+	sv1 := Vec4{
+		X: (divided0.X + 1) * 0.5 * float32(width),
+		Y: (1 - divided0.Y) * 0.5 * float32(height),
+		Z: 1.0 / tri0.W,
+		W: tri0.W,
+	}
+	sv2 := Vec4{
+		X: (divided1.X + 1) * 0.5 * float32(width),
+		Y: (1 - divided1.Y) * 0.5 * float32(height),
+		Z: 1.0 / tri1.W,
+		W: tri1.W,
+	}
+	sv3 := Vec4{
+		X: (divided2.X + 1) * 0.5 * float32(width),
+		Y: (1 - divided2.Y) * 0.5 * float32(height),
+		Z: 1.0 / tri2.W,
+		W: tri2.W,
+	}
+
+	return sv1, sv2, sv3
+}

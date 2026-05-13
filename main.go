@@ -216,35 +216,15 @@ func main() {
 		for i := 0; i < len(faces); i += 3 {
 
 			// back face culling
-			vs0 := viewVerts[faces[i]]
-			vs1 := viewVerts[faces[i+1]]
-			vs2 := viewVerts[faces[i+2]]
-
-			if cullBackFace(vs0, vs1, vs2) {
+			if cullBackFace(viewVerts[faces[i]], viewVerts[faces[i+1]], viewVerts[faces[i+2]]) {
 				continue
 			}
 
-			l0 := lightValues[faces[i]]
-			l1 := lightValues[faces[i+1]]
-			l2 := lightValues[faces[i+2]]
-
-			v0 := clipSpaceVerts[faces[i]]
-			v1 := clipSpaceVerts[faces[i+1]]
-			v2 := clipSpaceVerts[faces[i+2]]
-
-			col0 := *verts[faces[i]].Color
-			col1 := *verts[faces[i+1]].Color
-			col2 := *verts[faces[i+2]].Color
-
-			uv0 := verts[faces[i]].UV
-			uv1 := verts[faces[i+1]].UV
-			uv2 := verts[faces[i+2]].UV
-
 			poly := CreatePolygonFromTriangle(
-				v0, v1, v2,
-				uv0, uv1, uv2,
-				col0, col1, col2,
-				l0, l1, l2,
+				clipSpaceVerts[faces[i]], clipSpaceVerts[faces[i+1]], clipSpaceVerts[faces[i+2]],
+				verts[faces[i]].UV, verts[faces[i+1]].UV, verts[faces[i+2]].UV,
+				*verts[faces[i]].Color, *verts[faces[i+1]].Color, *verts[faces[i+2]].Color,
+				lightValues[faces[i]], lightValues[faces[i+1]], lightValues[faces[i+2]],
 			)
 			ClipPolygon(&poly)
 
@@ -255,30 +235,9 @@ func main() {
 			// NDC Space stuff
 			for j := 0; j < numTrianglesAfterClipping; j++ {
 
-				tri := trianglesAfterClipping[j].points
+				tris := trianglesAfterClipping[j].points
 
-				divided0 := PerspectiveDivide(tri[0])
-				divided1 := PerspectiveDivide(tri[1])
-				divided2 := PerspectiveDivide(tri[2])
-
-				sv1 := Vec4{
-					X: (divided0.X + 1) * 0.5 * float32(width),
-					Y: (1 - divided0.Y) * 0.5 * float32(height),
-					Z: 1.0 / tri[0].W,
-					W: tri[0].W,
-				}
-				sv2 := Vec4{
-					X: (divided1.X + 1) * 0.5 * float32(width),
-					Y: (1 - divided1.Y) * 0.5 * float32(height),
-					Z: 1.0 / tri[1].W,
-					W: tri[1].W,
-				}
-				sv3 := Vec4{
-					X: (divided2.X + 1) * 0.5 * float32(width),
-					Y: (1 - divided2.Y) * 0.5 * float32(height),
-					Z: 1.0 / tri[2].W,
-					W: tri[2].W,
-				}
+				sv1, sv2, sv3 := ClipToScreenSpace(tris[0], tris[1], tris[2], width, height)
 
 				col0 := trianglesAfterClipping[j].colors[0]
 				col1 := trianglesAfterClipping[j].colors[1]
@@ -296,17 +255,6 @@ func main() {
 				r2 := float32(col2.X) / sv3.W
 				g2 := float32(col2.Y) / sv3.W
 				b2 := float32(col2.Z) / sv3.W
-
-				oneOverW0 := 1.0 / sv1.W
-				oneOverW1 := 1.0 / sv2.W
-				oneOverW2 := 1.0 / sv3.W
-
-				l0 := trianglesAfterClipping[j].lights[0]
-				l1 := trianglesAfterClipping[j].lights[1]
-				l2 := trianglesAfterClipping[j].lights[2]
-
-				// perspective correct prep for light, same as color
-				l0OverW, l1OverW, l2OverW := GetLightOverW(l0, l1, l2, sv1.W, sv2.W, sv3.W)
 
 				vec31 := Vec3{
 					X: sv1.X,
@@ -345,6 +293,13 @@ func main() {
 
 				u2OverW := uv2.U / sv3.W
 				v2OverW := uv2.V / sv3.W
+
+				// perspective correct prep for light, same as color
+				l0OverW, l1OverW, l2OverW := GetLightOverW(trianglesAfterClipping[j].lights[0], trianglesAfterClipping[j].lights[1], trianglesAfterClipping[j].lights[2], sv1.W, sv2.W, sv3.W)
+
+				oneOverW0 := 1.0 / sv1.W
+				oneOverW1 := 1.0 / sv2.W
+				oneOverW2 := 1.0 / sv3.W
 
 				// screen space stuff
 
@@ -385,9 +340,9 @@ func main() {
 								texR, texG, texB, _ := SampleTexture(textureImg, finalU, finalV)
 
 								// 0.003921569 = 1/255
-								finalR := byte(min(float32(255), float32(texR)*(float32(interpR/interpW)*0.003921569)*finalLightR))
-								finalG := byte(min(float32(255), float32(texG)*(float32(interpG/interpW)*0.003921569)*finalLightG))
-								finalB := byte(min(float32(255), float32(texB)*(float32(interpB/interpW)*0.003921569)*finalLightB))
+								finalR := byte(min(float32(255), float32(texR)*(float32(interpR*invInterpW)*0.003921569)*finalLightR))
+								finalG := byte(min(float32(255), float32(texG)*(float32(interpG*invInterpW)*0.003921569)*finalLightG))
+								finalB := byte(min(float32(255), float32(texB)*(float32(interpB*invInterpW)*0.003921569)*finalLightB))
 
 								pixels[coord] = byte(finalR)
 								pixels[coord+1] = byte(finalG)
@@ -399,9 +354,6 @@ func main() {
 					}
 				}
 			}
-
-			// drawLineZ(v1.Pos, v2.Pos, width, height, Black, pixels, zbuffer)
-
 		}
 
 		texture.Update(nil, pixels, int32(width*4))
