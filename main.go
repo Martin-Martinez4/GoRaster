@@ -43,9 +43,9 @@ func main() {
 	White := Vec4{255, 255, 255, 255}
 	// Black := Vec4{0, 0, 0, 255}
 
-	textureImg := LoadTexture("./assets/textures/Bricks103_1K-JPG_Color.jpg")
+	textureImg := LoadTexture("./assets/textures/mossy_brick_diff_4k.jpg")
 
-	objData := ReadObjFile("./assets/obj/blend.obj")
+	objData := ReadObjFile("./assets/obj/maze1.obj")
 	faces := objData.Faces
 	verts := objData.Verts
 
@@ -100,8 +100,8 @@ func main() {
 
 	// Baked in lighting; may remove later
 	lightDir := Vec3{10, 10, 10}.Normalize()
-	lightColor := Vec3{0.8, 0.5, 0.2}
-	ambient := Vec3{0.05, 0.05, 0.1}
+	lightColor := Vec3{0.1, 0.5, 0.2}
+	ambient := Vec3{0.4, 0.4, 0.8}
 	for i := range verts {
 
 		intensity := max(float32(0), vertNormals[i].Dot(lightDir))
@@ -111,13 +111,12 @@ func main() {
 		lightValues[i].Z = ambient.Z + intensity*0.8*lightColor.Z
 	}
 
-	idMatrix := IdentityMatrix()
 	// rotation := IdentityMatrix()
 	rotationAmount := 5 * float32(math.Pi/180)
 	speed := float32(5.0)
 	// yaw := float32(0.0)
 
-	camera := Camera{Position: Vec3{156, 0, -4}, Yaw: 0.0, Pitch: 0.0}
+	camera := Camera{Position: Vec3{-127, -16, -230}, Yaw: 0.0, Pitch: 0.0}
 
 	// cameraPos := Vec3{0, 0, 75}
 
@@ -149,10 +148,10 @@ func main() {
 				case sdl.K_D:
 					camera.Yaw -= rotationAmount
 
-				// case sdl.K_UP:
-				// 	camera.Pitch += rotationAmount
-				// case sdl.K_DOWN:
-				// 	camera.Pitch -= rotationAmount
+				case sdl.K_UP:
+					camera.Pitch += rotationAmount
+				case sdl.K_DOWN:
+					camera.Pitch -= rotationAmount
 
 				case sdl.K_W:
 					camera.Position.Z -= float32(math.Cos((float64(camera.Yaw)))) * speed
@@ -179,25 +178,12 @@ func main() {
 		var view Matrix4
 		MulMatrix4(&view, &rotation, &translation)
 
-		var model Matrix4
-		MulMatrix4(&model, &idMatrix, &idMatrix)
+		// var model Matrix4
+		// MulMatrix4(&model, &idMatrix, &idMatrix)
+		var model = IdentityMatrix()
 
-		// dynamic lighting
-		for i := range vertNormals {
-			// normals only need rotation, not translation
-			// use model matrix but ignore the translation component
-			worldNormal := model.MultVec4(Vec4{vertNormals[i].X, vertNormals[i].Y, vertNormals[i].Z, 0})
-			// W=0 means translation is ignored
-
-			lightDir := Vec3{0.5, 1, 0.5}.Normalize()
-			intensity := max(float32(0), Vec3{worldNormal.X, worldNormal.Y, worldNormal.Z}.Dot(lightDir))
-
-			// 0.2 ambient
-			// 0.8 lightColor
-			lightValues[i].X = 0.2 + intensity*0.8*lightColor.X
-			lightValues[i].Y = 0.2 + intensity*0.8*lightColor.Y
-			lightValues[i].Z = 0.2 + intensity*0.8*lightColor.Z
-		}
+		// // dynamic lighting
+		CalculateSimpleLighting(vertNormals, lightValues, lightColor, ambient, model)
 
 		// Create view space
 		var temp Matrix4
@@ -234,21 +220,13 @@ func main() {
 			vs1 := viewVerts[faces[i+1]]
 			vs2 := viewVerts[faces[i+2]]
 
+			if cullBackFace(vs0, vs1, vs2) {
+				continue
+			}
+
 			l0 := lightValues[faces[i]]
 			l1 := lightValues[faces[i+1]]
 			l2 := lightValues[faces[i+2]]
-
-			edge1 := Vec3{vs1.X - vs0.X, vs1.Y - vs0.Y, vs1.Z - vs0.Z}
-			edge2 := Vec3{vs2.X - vs0.X, vs2.Y - vs0.Y, vs2.Z - vs0.Z}
-
-			normal := edge1.Cross(edge2)
-
-			// in view space camera is at origin so camera ray is just -vertex
-			cameraRay := Vec3{-vs0.X, -vs0.Y, -vs0.Z}
-
-			if normal.Dot(cameraRay) <= 0 {
-				continue
-			}
 
 			v0 := clipSpaceVerts[faces[i]]
 			v1 := clipSpaceVerts[faces[i+1]]
@@ -258,9 +236,9 @@ func main() {
 			col1 := *verts[faces[i+1]].Color
 			col2 := *verts[faces[i+2]].Color
 
-			uv0 := *verts[faces[i]].UV
-			uv1 := *verts[faces[i+1]].UV
-			uv2 := *verts[faces[i+2]].UV
+			uv0 := verts[faces[i]].UV
+			uv1 := verts[faces[i+1]].UV
+			uv2 := verts[faces[i+2]].UV
 
 			poly := CreatePolygonFromTriangle(
 				v0, v1, v2,
@@ -276,14 +254,6 @@ func main() {
 
 			// NDC Space stuff
 			for j := 0; j < numTrianglesAfterClipping; j++ {
-
-				col0 := trianglesAfterClipping[j].colors[0]
-				col1 := trianglesAfterClipping[j].colors[1]
-				col2 := trianglesAfterClipping[j].colors[2]
-
-				l0 := trianglesAfterClipping[j].lights[0]
-				l1 := trianglesAfterClipping[j].lights[1]
-				l2 := trianglesAfterClipping[j].lights[2]
 
 				tri := trianglesAfterClipping[j].points
 
@@ -310,6 +280,10 @@ func main() {
 					W: tri[2].W,
 				}
 
+				col0 := trianglesAfterClipping[j].colors[0]
+				col1 := trianglesAfterClipping[j].colors[1]
+				col2 := trianglesAfterClipping[j].colors[2]
+
 				// divide each color channel by W at each vertex
 				r0 := float32(col0.X) / sv1.W
 				g0 := float32(col0.Y) / sv1.W
@@ -327,10 +301,12 @@ func main() {
 				oneOverW1 := 1.0 / sv2.W
 				oneOverW2 := 1.0 / sv3.W
 
+				l0 := trianglesAfterClipping[j].lights[0]
+				l1 := trianglesAfterClipping[j].lights[1]
+				l2 := trianglesAfterClipping[j].lights[2]
+
 				// perspective correct prep for light, same as color
-				l0OverW := Vec3{l0.X / sv1.W, l0.Y / sv1.W, l0.Z / sv1.W}
-				l1OverW := Vec3{l1.X / sv2.W, l1.Y / sv2.W, l1.Z / sv2.W}
-				l2OverW := Vec3{l2.X / sv3.W, l2.Y / sv3.W, l2.Z / sv3.W}
+				l0OverW, l1OverW, l2OverW := GetLightOverW(l0, l1, l2, sv1.W, sv2.W, sv3.W)
 
 				vec31 := Vec3{
 					X: sv1.X,

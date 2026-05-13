@@ -13,7 +13,7 @@ grid = []
 border_width = 0.5
 border_width_2 = border_width * 2
 width = 5
-height = 5
+height = 10
 tall = 10
 floor_height = 1
 

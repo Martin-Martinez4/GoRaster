@@ -203,7 +203,7 @@ func CollectObjData(bufScanner *bufio.Scanner, objSD *OBJSourceData) *ObjData {
 				if !ok {
 					m[key] = len(verts)
 					faces = append(faces, uint32(len(verts)))
-					verts = append(verts, Vertex{Pos: objSD.Positions[d0Int], UV: &objSD.UVs[d1Int]})
+					verts = append(verts, Vertex{Pos: objSD.Positions[d0Int], UV: Tex2{objSD.UVs[d1Int].U, 1 - objSD.UVs[d1Int].V}})
 				} else {
 					faces = append(faces, uint32(indx))
 				}
@@ -250,9 +250,9 @@ func CollectObjData(bufScanner *bufio.Scanner, objSD *OBJSourceData) *ObjData {
 					}
 				}
 
-				var uv *Tex2
+				var uv Tex2
 				if d1Int >= 0 {
-					uv = &objSD.UVs[d1Int]
+					uv = objSD.UVs[d1Int]
 				}
 
 				var normal *Vec3
