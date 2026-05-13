@@ -174,8 +174,9 @@ func main() {
 		var rotation Matrix4
 		MulMatrix4(&rotation, RotationAlongY(camera.Yaw), RotationAlongX(camera.Pitch))
 
-		var view Matrix4
+		// -- Do collision here
 
+		var view Matrix4
 		MulMatrix4(&view, &rotation, &translation)
 
 		var model Matrix4
