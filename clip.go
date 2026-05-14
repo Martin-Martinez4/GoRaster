@@ -254,3 +254,36 @@ func ClipToScreenSpace(tri0, tri1, tri2 Vec4, width, height int) (Vec4, Vec4, Ve
 
 	return sv1, sv2, sv3
 }
+
+func ClippedColorComponents(col0, col1, col2 Vec4, invSv1W, invSv2W, invSv3W float32) (r0, g0, b0, r1, g1, b1, r2, g2, b2 float32) {
+
+	// divide each color channel by W at each vertex
+	r0 = float32(col0.X) * invSv1W
+	g0 = float32(col0.Y) * invSv1W
+	b0 = float32(col0.Z) * invSv1W
+
+	r1 = float32(col1.X) * invSv2W
+	g1 = float32(col1.Y) * invSv2W
+	b1 = float32(col1.Z) * invSv2W
+
+	r2 = float32(col2.X) * invSv3W
+	g2 = float32(col2.Y) * invSv3W
+	b2 = float32(col2.Z) * invSv3W
+
+	// named returns
+	return
+}
+
+func ClippedUVComponents(uv0, uv1, uv2 Tex2, invSv1W, invSv2W, invSv3W float32) (u0OverW, v0OverW, u1OverW, v1OverW, u2OverW, v2OverW float32) {
+
+	u0OverW = uv0.U * invSv1W
+	v0OverW = uv0.V * invSv1W
+
+	u1OverW = uv1.U * invSv2W
+	v1OverW = uv1.V * invSv2W
+
+	u2OverW = uv2.U * invSv3W
+	v2OverW = uv2.V * invSv3W
+
+	return
+}

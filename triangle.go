@@ -15,6 +15,21 @@ type Triangle struct {
 	avgDepth   float32
 }
 
+type RasterTri struct {
+	Points   [3]Vec4
+	UVs      [6]float32
+	Colors   [9]float32
+	Lights   [9]float32
+	OneOverW [3]float32
+	InvArea  float32
+}
+
+type Bin struct {
+	MinX, MinY int
+	MaxX, MaxY int
+	Tris       []RasterTri
+}
+
 func edge(p, a, b Vec3) float32 {
 	return (p.X-a.X)*(b.Y-a.Y) - (p.Y-a.Y)*(b.X-a.X)
 }
