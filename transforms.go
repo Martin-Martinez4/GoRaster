@@ -14,6 +14,30 @@ func RotationAlongY(radians float32) *Matrix4 {
 	}
 }
 
+func RotationAlongZ(radians float32) *Matrix4 {
+
+	rads64 := float64(radians)
+
+	return &Matrix4{
+		float32(math.Cos(rads64)), float32(-math.Sin(rads64)), 0, 0,
+		float32(math.Sin(rads64)), float32(math.Cos(rads64)), 0, 0,
+		0, 0, 1, 0,
+		0, 0, 0, 1,
+	}
+}
+
+func RotationAlongX(radians float32) *Matrix4 {
+
+	rads64 := float64(radians)
+
+	return &Matrix4{
+		1, 0, 0, 0,
+		0, float32(math.Cos(rads64)), float32(-math.Sin(rads64)), 0,
+		0, float32(math.Sin(rads64)), float32(math.Cos(rads64)), 0,
+		0, 0, 0, 1,
+	}
+}
+
 func Translate(tx, ty, tz float32) *Matrix4 {
 	m := IdentityMatrix()
 

@@ -45,68 +45,16 @@ func main() {
 
 	textureImg := LoadTexture("./assets/textures/Bricks103_1K-JPG_Color.jpg")
 
-	verts := []Vertex{
-		// Front face (z = +1)
-		{Pos: Vec3{-0.5, -1, 1}, Color: &White, UV: &Tex2{0, 0}}, // 0
-		{Pos: Vec3{0.5, -1, 1}, Color: &White, UV: &Tex2{1, 0}},  // 1
-		{Pos: Vec3{0.5, 1, 1}, Color: &White, UV: &Tex2{1, 1}},   // 2
-		{Pos: Vec3{-0.5, 1, 1}, Color: &White, UV: &Tex2{0, 1}},  // 3
+	objData := ReadObjFile("./assets/obj/blend.obj")
+	faces := objData.Faces
+	verts := objData.Verts
 
-		// Back face (z = -1)
-		{Pos: Vec3{0.5, -1, -1}, Color: &White, UV: &Tex2{0, 0}},  // 4
-		{Pos: Vec3{-0.5, -1, -1}, Color: &White, UV: &Tex2{1, 0}}, // 5
-		{Pos: Vec3{-0.5, 1, -1}, Color: &White, UV: &Tex2{1, 1}},  // 6
-		{Pos: Vec3{0.5, 1, -1}, Color: &White, UV: &Tex2{0, 1}},   // 7
+	for i := range verts {
+		verts[i].Color = &White
 
-		// Left face (x = -2)
-		{Pos: Vec3{-0.5, -1, -1}, Color: &White, UV: &Tex2{0, 0}}, // 8
-		{Pos: Vec3{-0.5, -1, 1}, Color: &White, UV: &Tex2{1, 0}},  // 9
-		{Pos: Vec3{-0.5, 1, 1}, Color: &White, UV: &Tex2{1, 1}},   // 10
-		{Pos: Vec3{-0.5, 1, -1}, Color: &White, UV: &Tex2{0, 1}},  // 11
-
-		// Right face (x = +2)
-		{Pos: Vec3{0.5, -1, 1}, Color: &White, UV: &Tex2{0, 0}},  // 12
-		{Pos: Vec3{0.5, -1, -1}, Color: &White, UV: &Tex2{1, 0}}, // 13
-		{Pos: Vec3{0.5, 1, -1}, Color: &White, UV: &Tex2{1, 1}},  // 14
-		{Pos: Vec3{0.5, 1, 1}, Color: &White, UV: &Tex2{0, 1}},   // 15
-
-		// Top face (y = -2
-		{Pos: Vec3{-0.5, -1, -1}, Color: &White, UV: &Tex2{0, 0}}, // 16
-		{Pos: Vec3{0.5, -1, -1}, Color: &White, UV: &Tex2{1, 0}},  // 17
-		{Pos: Vec3{0.5, -1, 1}, Color: &White, UV: &Tex2{1, 1}},   // 18
-		{Pos: Vec3{-1, -1, 1}, Color: &White, UV: &Tex2{0, 1}},    // 19
-
-		// Bottom face (y = +2)
-		{Pos: Vec3{-0.5, 1, 1}, Color: &White, UV: &Tex2{0, 0}},  // 20
-		{Pos: Vec3{0.5, 1, 1}, Color: &White, UV: &Tex2{1, 0}},   // 21
-		{Pos: Vec3{0.5, 1, -1}, Color: &White, UV: &Tex2{1, 1}},  // 22
-		{Pos: Vec3{-0.5, 1, -1}, Color: &White, UV: &Tex2{0, 1}}, // 23
-	}
-
-	faces := []uint32{
-		// Front
-		0, 1, 2,
-		0, 2, 3,
-
-		// Back
-		4, 5, 6,
-		4, 6, 7,
-
-		// Left
-		8, 9, 10,
-		8, 10, 11,
-
-		// Right
-		12, 13, 14,
-		12, 14, 15,
-
-		// Top
-		16, 17, 18,
-		16, 18, 19,
-
-		// Bottom
-		20, 21, 22,
-		20, 22, 23,
+		// verts[i].Pos.X *= 4
+		// verts[i].Pos.Y *= 8
+		// verts[i].Pos.Z *= 4
 	}
 
 	texture, err := renderer.CreateTexture(
@@ -123,14 +71,9 @@ func main() {
 	fovY := float32(math.Pi / 4.0)
 	fovx := float32(math.Atan(math.Tan(float64(fovY/2))*float64(aspectX)) * 2.0)
 	zNear := float32(0.1)
-	zFar := float32(100.0)
+	zFar := float32(1000.0)
 
-	// aspectRatio := float32(width) / float32(height)
-
-	cameraPos := Vec3{0, 0, 10}
-	view := ViewMatrix(cameraPos)
-
-	proj := Perspective(zNear, zFar, fovY, aspectX) // correct
+	proj := Perspective(zNear, zFar, fovY, aspectX)
 
 	initFrustumPlanes(fovY, fovx, zNear, zFar)
 
@@ -141,7 +84,7 @@ func main() {
 	var frameCount int
 	var fpsAcc float32
 
-	var rotationY float32 = 40.0
+	// var rotationY float32 = 40.0
 
 	viewVerts := make([]Vec4, len(verts))
 	clipSpaceVerts := make([]Vec4, len(verts))
@@ -150,37 +93,13 @@ func main() {
 	vertNormals := make([]Vec3, len(verts))
 	lightValues := make([]Vec3, len(verts))
 
-	for i := 0; i < len(faces); i += 3 {
-
-		v0 := verts[faces[i]].Pos
-		v1 := verts[faces[i+1]].Pos
-		v2 := verts[faces[i+2]].Pos
-
-		edge1 := Vec3{v1.X - v0.X, v1.Y - v0.Y, v1.Z - v0.Z}
-		edge2 := Vec3{v2.X - v0.X, v2.Y - v0.Y, v2.Z - v0.Z}
-
-		faceNormal := edge1.Cross(edge2)
-
-		vertNormals[faces[i]].X += faceNormal.X
-		vertNormals[faces[i]].Y += faceNormal.Y
-		vertNormals[faces[i]].Z += faceNormal.Z
-
-		vertNormals[faces[i+1]].X += faceNormal.X
-		vertNormals[faces[i+1]].Y += faceNormal.Y
-		vertNormals[faces[i+1]].Z += faceNormal.Z
-
-		vertNormals[faces[i+2]].X += faceNormal.X
-		vertNormals[faces[i+2]].Y += faceNormal.Y
-		vertNormals[faces[i+2]].Z += faceNormal.Z
-	}
-
 	for i := range vertNormals {
-		vertNormals[i] = vertNormals[i].Normalize()
+		vertNormals[i] = verts[i].Normal.Normalize()
 
 	}
 
 	// Baked in lighting; may remove later
-	lightDir := Vec3{1, 1, 1}.Normalize()
+	lightDir := Vec3{10, 10, 10}.Normalize()
 	lightColor := Vec3{0.8, 0.5, 0.2}
 	ambient := Vec3{0.05, 0.05, 0.1}
 	for i := range verts {
@@ -191,6 +110,18 @@ func main() {
 		lightValues[i].Y = ambient.Y + intensity*0.8*lightColor.Y
 		lightValues[i].Z = ambient.Z + intensity*0.8*lightColor.Z
 	}
+
+	idMatrix := IdentityMatrix()
+	// rotation := IdentityMatrix()
+	rotationAmount := 5 * float32(math.Pi/180)
+	speed := float32(5.0)
+	// yaw := float32(0.0)
+
+	camera := Camera{Position: Vec3{156, 0, -4}, Yaw: 0.0, Pitch: 0.0}
+
+	// cameraPos := Vec3{0, 0, 75}
+
+	// translate := Vec3{0, 0, 0}
 
 	sdl.RunLoop(func() error {
 		currentTime := sdl.Ticks()
@@ -207,16 +138,48 @@ func main() {
 		var event sdl.Event
 
 		for sdl.PollEvent(&event) {
-			if event.Type == sdl.EVENT_QUIT {
+			switch event.Type {
+			case sdl.EVENT_QUIT:
 				return sdl.EndLoop
+
+			case sdl.EVENT_KEY_DOWN:
+				switch event.KeyboardEvent().Key {
+				case sdl.K_A:
+					camera.Yaw += rotationAmount
+				case sdl.K_D:
+					camera.Yaw -= rotationAmount
+
+				// case sdl.K_UP:
+				// 	camera.Pitch += rotationAmount
+				// case sdl.K_DOWN:
+				// 	camera.Pitch -= rotationAmount
+
+				case sdl.K_W:
+					camera.Position.Z -= float32(math.Cos((float64(camera.Yaw)))) * speed
+					camera.Position.X -= float32(math.Sin((float64(camera.Yaw)))) * speed
+				case sdl.K_S:
+					camera.Position.Z += float32(math.Cos((float64(camera.Yaw)))) * speed
+					camera.Position.X += float32(math.Sin((float64(camera.Yaw)))) * speed
+				}
+
 			}
+
 		}
 
 		// object space
 
 		// Create world space
+		// angle := 90 * float32(math.Pi/180)
+		translation := ViewMatrix(camera.Position)
+		var rotation Matrix4
+		MulMatrix4(&rotation, RotationAlongY(camera.Yaw), RotationAlongX(camera.Pitch))
+
+		var view Matrix4
+
+		MulMatrix4(&view, &rotation, &translation)
+
 		var model Matrix4
-		MulMatrix4(&model, Translate(0, 0, 0), RotationAlongY(rotationY))
+		MulMatrix4(&model, &idMatrix, &idMatrix)
 
 		// dynamic lighting
 		for i := range vertNormals {
@@ -446,7 +409,6 @@ func main() {
 
 								// 0.003921569 = 1/255
 								finalR := byte(min(float32(255), float32(texR)*(float32(interpR/interpW)*0.003921569)*finalLightR))
-
 								finalG := byte(min(float32(255), float32(texG)*(float32(interpG/interpW)*0.003921569)*finalLightG))
 								finalB := byte(min(float32(255), float32(texB)*(float32(interpB/interpW)*0.003921569)*finalLightB))
 
@@ -477,9 +439,10 @@ func main() {
 		}
 
 		renderer.DebugText(10, 10, fmt.Sprintf("FPS: %.0f", fps))
+		renderer.DebugText(10, 20, fmt.Sprintf("Position: %.0f, %0.f, %0.f", camera.Position.X, camera.Position.Y, camera.Position.Z))
 		renderer.Present()
 
-		rotationY += 1.0 * deltaTime
+		// rotationY += 1.0 * deltaTime
 		for i := range zbuffer {
 			zbuffer[i] = float32(math.Inf(-1))
 		}
