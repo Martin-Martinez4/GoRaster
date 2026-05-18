@@ -13,13 +13,16 @@ grid = []
 border_width = 0.5
 border_width_2 = border_width * 2
 width = 5
-height = 5
-tall = 2
+height = 10
+tall = 10
+floor_height = 1
 
 BOTTOM = 4
 RIGHT = 8
 TOP = 1
 LEFT = 2
+
+ALL_WALLS = TOP | RIGHT | BOTTOM | LEFT
 
 
 def matrix_coords_to_array_coords(row, column, columns):
@@ -71,26 +74,71 @@ def createMaze(grid, columns):
 
     cell_w = width * 2 + border_width_2
     cell_h = height * 2 + border_width_2
+    
+    # Draw Floor
+    bpy.ops.mesh.primitive_cube_add(
+        location=(
+             (columns * (width + border_width)),
+            (rows * (height + border_width)),
+            0
+        ),
+        scale=(
+            columns * (width + border_width),
+            rows * (height + border_width),
+            floor_height
+        )
+    )
 
     for i, walls in enumerate(grid):
         # print("walls: ", walls) 
         coords = array_coords_to_matrix_coords(i, columns) 
         row = coords[0] 
         column = coords[1] 
+        
+        if walls == ALL_WALLS:
+
+            bpy.ops.mesh.primitive_cube_add(
+                location=(
+                    column * (width * 2 + border_width_2) + width,
+                    row * (height * 2 + border_width_2) + height,
+                    tall + floor_height
+                ),
+                scale=(
+                 (width + border_width_2),
+                    (height + border_width_2),
+                    tall
+                )
+                )
+
+            continue
+            
+        
         if(walls & TOP ):
              # +x 
-            bpy.ops.mesh.primitive_cube_add(location=(column*(width*2 + border_width_2)+(width) , row*(height*2 + border_width_2) , tall), scale=(width, border_width, tall)) 
+            bpy.ops.mesh.primitive_cube_add(
+                location=(column*(width*2 + border_width_2)+(width) , row*(height*2 + border_width_2) , tall+ floor_height), 
+                scale=(width + border_width, border_width, tall)
+            ) 
             
         if(row == rows-1):
-             bpy.ops.mesh.primitive_cube_add(location=(column*(width*2 + border_width_2)+(width) , row*(height*2 + border_width_2)+(height*2 + border_width) , tall), scale=(width, border_width, tall)) 
+            bpy.ops.mesh.primitive_cube_add(
+                location=(column*(width*2 + border_width_2)+(width) , row*(height*2 + border_width_2)+(height*2 + border_width) , tall + floor_height), 
+                scale=(width + border_width, border_width, tall)
+            ) 
              
         if(walls & RIGHT): 
             # +y 
-            bpy.ops.mesh.primitive_cube_add(location=(column*(width*2 + border_width_2)+(width*2 + border_width), row*(height*2 + border_width_2) + height+border_width, tall), scale=(border_width, height + border_width_2 , tall))
+            bpy.ops.mesh.primitive_cube_add(
+                location=(column*(width*2 + border_width_2)+(width*2 + border_width), row*(height*2 + border_width_2) + height+border_width, tall + floor_height), 
+                scale=(border_width, height + border_width_2 , tall)
+            )
             
         if(column == 0): 
             # +y 
-            bpy.ops.mesh.primitive_cube_add(location=(column*(width*2 + border_width_2), row*(height*2 + border_width_2) + height+border_width, tall), scale=(border_width, height + border_width_2 , tall))
+            bpy.ops.mesh.primitive_cube_add(
+                location=(column*(width*2 + border_width_2), row*(height*2 + border_width_2) + height+border_width, tall + floor_height), 
+                scale=(border_width, height + border_width_2 , tall)
+            )
 
 
 

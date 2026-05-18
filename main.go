@@ -3,6 +3,9 @@ package main
 import (
 	"fmt"
 	"math"
+	"runtime"
+	"sync"
+	"sync/atomic"
 
 	"github.com/Zyko0/go-sdl3/bin/binsdl"
 	"github.com/Zyko0/go-sdl3/sdl"
@@ -32,6 +35,30 @@ func main() {
 	// use for double buffer setup later
 	// pixels2 := make([]byte, width*height*4)
 
+	tileSize := 16
+	binCols := 1280 / tileSize
+	binRows := 720 / tileSize
+	rasterTris := make([]Bin, binCols*binRows)
+
+	// start workers
+	// limit to 4 just because for now
+	numWorkers := runtime.GOMAXPROCS(0)
+
+	var nextBin atomic.Uint32
+
+	for by := 0; by < binRows; by++ {
+		for bx := 0; bx < binCols; bx++ {
+
+			idx := ToArrayCoordsYUp(bx, by, binCols, binRows, 1)
+
+			rasterTris[idx].MinX = bx * tileSize
+			rasterTris[idx].MinY = by * tileSize
+
+			rasterTris[idx].MaxX = min(width-1, (bx+1)*tileSize-1)
+			rasterTris[idx].MaxY = min(height-1, (by+1)*tileSize-1)
+		}
+	}
+
 	zbuffer := make([]float32, width*height)
 	for i := range zbuffer {
 		zbuffer[i] = float32(math.Inf(-1))
@@ -43,9 +70,9 @@ func main() {
 	White := Vec4{255, 255, 255, 255}
 	// Black := Vec4{0, 0, 0, 255}
 
-	textureImg := LoadTexture("./assets/textures/Bricks103_1K-JPG_Color.jpg")
+	textureImg := LoadTexture("./assets/textures/mossy_brick_diff_4k.jpg")
 
-	objData := ReadObjFile("./assets/obj/blend.obj")
+	objData := ReadObjFile("./assets/obj/maze1.obj")
 	faces := objData.Faces
 	verts := objData.Verts
 
@@ -77,12 +104,12 @@ func main() {
 
 	initFrustumPlanes(fovY, fovx, zNear, zFar)
 
-	var lastTime uint64
-	var fps float32
+	// var lastTime uint64
+	// var fps float32
 
-	frameCountFrequency := 10
-	var frameCount int
-	var fpsAcc float32
+	// frameCountFrequency := 10
+	// var frameCount int
+	// var fpsAcc float32
 
 	// var rotationY float32 = 40.0
 
@@ -100,8 +127,8 @@ func main() {
 
 	// Baked in lighting; may remove later
 	lightDir := Vec3{10, 10, 10}.Normalize()
-	lightColor := Vec3{0.8, 0.5, 0.2}
-	ambient := Vec3{0.05, 0.05, 0.1}
+	lightColor := Vec3{0.1, 0.5, 0.2}
+	ambient := Vec3{0.4, 0.4, 0.8}
 	for i := range verts {
 
 		intensity := max(float32(0), vertNormals[i].Dot(lightDir))
@@ -111,29 +138,26 @@ func main() {
 		lightValues[i].Z = ambient.Z + intensity*0.8*lightColor.Z
 	}
 
-	idMatrix := IdentityMatrix()
 	// rotation := IdentityMatrix()
 	rotationAmount := 5 * float32(math.Pi/180)
 	speed := float32(5.0)
 	// yaw := float32(0.0)
 
-	camera := Camera{Position: Vec3{156, 0, -4}, Yaw: 0.0, Pitch: 0.0}
+	camera := Camera{Position: Vec3{-127, -16, -230}, Yaw: 0.0, Pitch: 0.0}
 
 	// cameraPos := Vec3{0, 0, 75}
 
 	// translate := Vec3{0, 0, 0}
 
-	sdl.RunLoop(func() error {
-		currentTime := sdl.Ticks()
-		deltaTime := float32(currentTime-lastTime) / 1000.0
-		lastTime = currentTime
+	targetFPS := 60.0
 
-		// cap at 100ms to avoid first frame spike
-		if deltaTime > 0.1 {
-			deltaTime = 0.1
-		}
-		fpsAcc += 1.0 / deltaTime
-		frameCount++
+	targetFrameMS := 1000.0 / targetFPS
+
+	sdl.RunLoop(func() error {
+		frameStart := sdl.Ticks()
+		// currentTime := frameStart
+		// deltaTime := float32(currentTime-lastTime) / 1000.0
+		// lastTime = currentTime
 
 		var event sdl.Event
 
@@ -149,10 +173,10 @@ func main() {
 				case sdl.K_D:
 					camera.Yaw -= rotationAmount
 
-				// case sdl.K_UP:
-				// 	camera.Pitch += rotationAmount
-				// case sdl.K_DOWN:
-				// 	camera.Pitch -= rotationAmount
+				case sdl.K_UP:
+					camera.Pitch += rotationAmount
+				case sdl.K_DOWN:
+					camera.Pitch -= rotationAmount
 
 				case sdl.K_W:
 					camera.Position.Z -= float32(math.Cos((float64(camera.Yaw)))) * speed
@@ -174,29 +198,17 @@ func main() {
 		var rotation Matrix4
 		MulMatrix4(&rotation, RotationAlongY(camera.Yaw), RotationAlongX(camera.Pitch))
 
-		var view Matrix4
+		// -- Do collision here
 
+		var view Matrix4
 		MulMatrix4(&view, &rotation, &translation)
 
-		var model Matrix4
-		MulMatrix4(&model, &idMatrix, &idMatrix)
+		// var model Matrix4
+		// MulMatrix4(&model, &idMatrix, &idMatrix)
+		var model = IdentityMatrix()
 
-		// dynamic lighting
-		for i := range vertNormals {
-			// normals only need rotation, not translation
-			// use model matrix but ignore the translation component
-			worldNormal := model.MultVec4(Vec4{vertNormals[i].X, vertNormals[i].Y, vertNormals[i].Z, 0})
-			// W=0 means translation is ignored
-
-			lightDir := Vec3{0.5, 1, 0.5}.Normalize()
-			intensity := max(float32(0), Vec3{worldNormal.X, worldNormal.Y, worldNormal.Z}.Dot(lightDir))
-
-			// 0.2 ambient
-			// 0.8 lightColor
-			lightValues[i].X = 0.2 + intensity*0.8*lightColor.X
-			lightValues[i].Y = 0.2 + intensity*0.8*lightColor.Y
-			lightValues[i].Z = 0.2 + intensity*0.8*lightColor.Z
-		}
+		// // dynamic lighting
+		CalculateSimpleLighting(vertNormals, lightValues, lightColor, ambient, model)
 
 		// Create view space
 		var temp Matrix4
@@ -226,46 +238,22 @@ func main() {
 			pixels[i+3] = 255
 		}
 
+		for i := range rasterTris {
+			rasterTris[i].Tris = rasterTris[i].Tris[:0]
+		}
+
 		for i := 0; i < len(faces); i += 3 {
 
 			// back face culling
-			vs0 := viewVerts[faces[i]]
-			vs1 := viewVerts[faces[i+1]]
-			vs2 := viewVerts[faces[i+2]]
-
-			l0 := lightValues[faces[i]]
-			l1 := lightValues[faces[i+1]]
-			l2 := lightValues[faces[i+2]]
-
-			edge1 := Vec3{vs1.X - vs0.X, vs1.Y - vs0.Y, vs1.Z - vs0.Z}
-			edge2 := Vec3{vs2.X - vs0.X, vs2.Y - vs0.Y, vs2.Z - vs0.Z}
-
-			normal := edge1.Cross(edge2)
-
-			// in view space camera is at origin so camera ray is just -vertex
-			cameraRay := Vec3{-vs0.X, -vs0.Y, -vs0.Z}
-
-			if normal.Dot(cameraRay) <= 0 {
+			if cullBackFace(viewVerts[faces[i]], viewVerts[faces[i+1]], viewVerts[faces[i+2]]) {
 				continue
 			}
 
-			v0 := clipSpaceVerts[faces[i]]
-			v1 := clipSpaceVerts[faces[i+1]]
-			v2 := clipSpaceVerts[faces[i+2]]
-
-			col0 := *verts[faces[i]].Color
-			col1 := *verts[faces[i+1]].Color
-			col2 := *verts[faces[i+2]].Color
-
-			uv0 := *verts[faces[i]].UV
-			uv1 := *verts[faces[i+1]].UV
-			uv2 := *verts[faces[i+2]].UV
-
 			poly := CreatePolygonFromTriangle(
-				v0, v1, v2,
-				uv0, uv1, uv2,
-				col0, col1, col2,
-				l0, l1, l2,
+				clipSpaceVerts[faces[i]], clipSpaceVerts[faces[i+1]], clipSpaceVerts[faces[i+2]],
+				verts[faces[i]].UV, verts[faces[i+1]].UV, verts[faces[i+2]].UV,
+				*verts[faces[i]].Color, *verts[faces[i+1]].Color, *verts[faces[i+2]].Color,
+				lightValues[faces[i]], lightValues[faces[i+1]], lightValues[faces[i+2]],
 			)
 			ClipPolygon(&poly)
 
@@ -276,60 +264,40 @@ func main() {
 			// NDC Space stuff
 			for j := 0; j < numTrianglesAfterClipping; j++ {
 
-				col0 := trianglesAfterClipping[j].colors[0]
-				col1 := trianglesAfterClipping[j].colors[1]
-				col2 := trianglesAfterClipping[j].colors[2]
+				tris := trianglesAfterClipping[j].points
 
-				l0 := trianglesAfterClipping[j].lights[0]
-				l1 := trianglesAfterClipping[j].lights[1]
-				l2 := trianglesAfterClipping[j].lights[2]
+				sv1, sv2, sv3 := ClipToScreenSpace(tris[0], tris[1], tris[2], width, height)
+				invSv1W := 1 / sv1.W
+				invSv2W := 1 / sv2.W
+				invSv3W := 1 / sv3.W
 
-				tri := trianglesAfterClipping[j].points
+				r0, g0, b0, r1, g1, b1, r2, g2, b2 := ClippedColorComponents(
+					trianglesAfterClipping[j].colors[0],
+					trianglesAfterClipping[j].colors[1],
+					trianglesAfterClipping[j].colors[2],
+					invSv1W,
+					invSv2W,
+					invSv3W,
+				)
 
-				divided0 := PerspectiveDivide(tri[0])
-				divided1 := PerspectiveDivide(tri[1])
-				divided2 := PerspectiveDivide(tri[2])
-
-				sv1 := Vec4{
-					X: (divided0.X + 1) * 0.5 * float32(width),
-					Y: (1 - divided0.Y) * 0.5 * float32(height),
-					Z: 1.0 / tri[0].W,
-					W: tri[0].W,
-				}
-				sv2 := Vec4{
-					X: (divided1.X + 1) * 0.5 * float32(width),
-					Y: (1 - divided1.Y) * 0.5 * float32(height),
-					Z: 1.0 / tri[1].W,
-					W: tri[1].W,
-				}
-				sv3 := Vec4{
-					X: (divided2.X + 1) * 0.5 * float32(width),
-					Y: (1 - divided2.Y) * 0.5 * float32(height),
-					Z: 1.0 / tri[2].W,
-					W: tri[2].W,
-				}
-
-				// divide each color channel by W at each vertex
-				r0 := float32(col0.X) / sv1.W
-				g0 := float32(col0.Y) / sv1.W
-				b0 := float32(col0.Z) / sv1.W
-
-				r1 := float32(col1.X) / sv2.W
-				g1 := float32(col1.Y) / sv2.W
-				b1 := float32(col1.Z) / sv2.W
-
-				r2 := float32(col2.X) / sv3.W
-				g2 := float32(col2.Y) / sv3.W
-				b2 := float32(col2.Z) / sv3.W
-
-				oneOverW0 := 1.0 / sv1.W
-				oneOverW1 := 1.0 / sv2.W
-				oneOverW2 := 1.0 / sv3.W
+				u0OverW, v0OverW, u1OverW, v1OverW, u2OverW, v2OverW := ClippedUVComponents(
+					trianglesAfterClipping[j].textcoords[0],
+					trianglesAfterClipping[j].textcoords[1],
+					trianglesAfterClipping[j].textcoords[2],
+					invSv1W,
+					invSv2W,
+					invSv3W,
+				)
 
 				// perspective correct prep for light, same as color
-				l0OverW := Vec3{l0.X / sv1.W, l0.Y / sv1.W, l0.Z / sv1.W}
-				l1OverW := Vec3{l1.X / sv2.W, l1.Y / sv2.W, l1.Z / sv2.W}
-				l2OverW := Vec3{l2.X / sv3.W, l2.Y / sv3.W, l2.Z / sv3.W}
+				l0OverW, l1OverW, l2OverW := GetLightOverW(
+					trianglesAfterClipping[j].lights[0],
+					trianglesAfterClipping[j].lights[1],
+					trianglesAfterClipping[j].lights[2],
+					sv1.W,
+					sv2.W,
+					sv3.W,
+				)
 
 				vec31 := Vec3{
 					X: sv1.X,
@@ -351,94 +319,146 @@ func main() {
 
 				minX, maxX, minY, maxY := GetRectBounds(vec31, vec32, vec33)
 
-				minX = max(0, minX)
-				minY = max(0, minY)
-				maxX = min(width-1, maxX)
-				maxY = min(height-1, maxY)
+				minX = max(0, minX/tileSize)
+				minY = max(0, minY/tileSize)
+				maxX = min((width-1)/tileSize, maxX/tileSize)
+				maxY = min((height-1)/tileSize, maxY/tileSize)
 
-				uv0 := trianglesAfterClipping[j].textcoords[0]
-				uv1 := trianglesAfterClipping[j].textcoords[1]
-				uv2 := trianglesAfterClipping[j].textcoords[2]
+				oneOverW0 := 1.0 / sv1.W
+				oneOverW1 := 1.0 / sv2.W
+				oneOverW2 := 1.0 / sv3.W
 
-				u0OverW := uv0.U / sv1.W
-				v0OverW := uv0.V / sv1.W
+				// area := edge(vec31, vec32, vec33)
+				// invArea := 1.0 / area
 
-				u1OverW := uv1.U / sv2.W
-				v1OverW := uv1.V / sv2.W
+				// add tris to bins
 
-				u2OverW := uv2.U / sv3.W
-				v2OverW := uv2.V / sv3.W
+				for y := minY; y <= maxY; y++ {
+					for x := minX; x <= maxX; x++ {
+						base := ToArrayCoordsYUp(x, y, binCols, binRows, 1)
+
+						rasterTris[base].Tris = append(rasterTris[base].Tris, RasterTri{
+							Points:   [3]Vec4{sv1, sv2, sv3},
+							UVs:      [6]float32{u0OverW, v0OverW, u1OverW, v1OverW, u2OverW, v2OverW},
+							Colors:   [9]float32{r0, g0, b0, r1, g1, b1, r2, g2, b2},
+							Lights:   [9]float32{l0OverW.X, l0OverW.Y, l0OverW.Z, l1OverW.X, l1OverW.Y, l1OverW.Z, l2OverW.X, l2OverW.Y, l2OverW.Z},
+							OneOverW: [3]float32{oneOverW0, oneOverW1, oneOverW2},
+							InvArea:  1.0 / edge(vec31, vec32, vec33),
+						})
+
+					}
+				}
 
 				// screen space stuff
 
-				area := edge(vec31, vec32, vec33)
-				invArea := 1.0 / area
-				for y := minY; y <= maxY; y++ {
-					for x := minX; x <= maxX; x++ {
+			}
+		}
 
-						// Create vec from center of pixel
-						inTri, w0, w1, w2 := IsPixelInTriangle(Vec3{float32(x) + 0.5, float32(y) + 0.5, 0}, vec31, vec32, vec33, invArea)
-						if inTri {
+		var wg sync.WaitGroup
 
-							base := ToArrayCoordsYUp(x, y, width, height, 1)
-							coord := base * 4
-							zCoord := base
+		wg.Add(numWorkers)
 
-							interpolatedZ := w0*sv1.Z + w1*sv2.Z + w2*sv3.Z
-							if interpolatedZ >= zbuffer[zCoord] {
+		for w := 0; w < numWorkers; w++ {
+			go func() {
+				defer wg.Done()
 
-								zbuffer[zCoord] = interpolatedZ
+				for {
+					idx := int(nextBin.Add(1)) - 1
 
-								// inside pixel loop, interpolate and recover
-								interpR := w0*r0 + w1*r1 + w2*r2
-								interpG := w0*g0 + w1*g1 + w2*g2
-								interpB := w0*b0 + w1*b1 + w2*b2
-								interpW := w0*oneOverW0 + w1*oneOverW1 + w2*oneOverW2
-								invInterpW := 1 / interpW
+					if idx >= len(rasterTris) {
+						return
+					}
 
-								// lighting
-								// interpL := w0*l0OverW + w1*l1OverW + w2*l2OverW
-								finalLightR := (w0*l0OverW.X + w1*l1OverW.X + w2*l2OverW.X) * invInterpW
-								finalLightG := (w0*l0OverW.Y + w1*l1OverW.Y + w2*l2OverW.Y) * invInterpW
-								finalLightB := (w0*l0OverW.Z + w1*l1OverW.Z + w2*l2OverW.Z) * invInterpW
+					for _, tri := range rasterTris[idx].Tris {
 
-								finalU := (w0*u0OverW + w1*u1OverW + w2*u2OverW) * invInterpW
-								finalV := (w0*v0OverW + w1*v1OverW + w2*v2OverW) * invInterpW
+						vec31 := Vec3{
+							X: tri.Points[0].X,
+							Y: tri.Points[0].Y,
+							Z: tri.Points[0].Z,
+						}
 
-								texR, texG, texB, _ := SampleTexture(textureImg, finalU, finalV)
+						vec32 := Vec3{
+							X: tri.Points[1].X,
+							Y: tri.Points[1].Y,
+							Z: tri.Points[1].Z,
+						}
 
-								// 0.003921569 = 1/255
-								finalR := byte(min(float32(255), float32(texR)*(float32(interpR/interpW)*0.003921569)*finalLightR))
-								finalG := byte(min(float32(255), float32(texG)*(float32(interpG/interpW)*0.003921569)*finalLightG))
-								finalB := byte(min(float32(255), float32(texB)*(float32(interpB/interpW)*0.003921569)*finalLightB))
+						vec33 := Vec3{
+							X: tri.Points[2].X,
+							Y: tri.Points[2].Y,
+							Z: tri.Points[2].Z,
+						}
 
-								pixels[coord] = byte(finalR)
-								pixels[coord+1] = byte(finalG)
-								pixels[coord+2] = byte(finalB)
-								pixels[coord+3] = 255
+						for y := rasterTris[idx].MinY; y <= rasterTris[idx].MaxY; y++ {
+							for x := rasterTris[idx].MinX; x <= rasterTris[idx].MaxX; x++ {
+
+								// Create vec from center of pixel
+								inTri, w0, w1, w2 := IsPixelInTriangle(Vec3{float32(x) + 0.5, float32(y) + 0.5, 0}, vec31, vec32, vec33, tri.InvArea)
+								if inTri {
+
+									base := ToArrayCoordsYUp(x, y, width, height, 1)
+									coord := base * 4
+									zCoord := base
+
+									interpolatedZ := w0*tri.Points[0].Z + w1*tri.Points[1].Z + w2*tri.Points[2].Z
+									if interpolatedZ >= zbuffer[zCoord] {
+
+										zbuffer[zCoord] = interpolatedZ
+
+										// inside pixel loop, interpolate and recover
+										interpR := w0*tri.Colors[0] + w1*tri.Colors[3] + w2*tri.Colors[6]
+										interpG := w0*tri.Colors[1] + w1*tri.Colors[4] + w2*tri.Colors[7]
+										interpB := w0*tri.Colors[2] + w1*tri.Colors[5] + w2*tri.Colors[8]
+										interpW := w0*tri.OneOverW[0] + w1*tri.OneOverW[1] + w2*tri.OneOverW[2]
+										invInterpW := 1 / interpW
+
+										// lighting
+										// interpL := w0*l0OverW + w1*l1OverW + w2*l2OverW
+										finalLightR := (w0*tri.Lights[0] + w1*tri.Lights[3] + w2*tri.Lights[6]) * invInterpW
+										finalLightG := (w0*tri.Lights[1] + w1*tri.Lights[4] + w2*tri.Lights[7]) * invInterpW
+										finalLightB := (w0*tri.Lights[2] + w1*tri.Lights[5] + w2*tri.Lights[8]) * invInterpW
+
+										finalU := (w0*tri.UVs[0] + w1*tri.UVs[2] + w2*tri.UVs[4]) * invInterpW
+										finalV := (w0*tri.UVs[1] + w1*tri.UVs[3] + w2*tri.UVs[5]) * invInterpW
+
+										texR, texG, texB, _ := SampleTexture(textureImg, finalU, finalV)
+
+										// 0.003921569 = 1/255
+										finalR := byte(min(float32(255), float32(texR)*(float32(interpR*invInterpW)*0.003921569)*finalLightR))
+										finalG := byte(min(float32(255), float32(texG)*(float32(interpG*invInterpW)*0.003921569)*finalLightG))
+										finalB := byte(min(float32(255), float32(texB)*(float32(interpB*invInterpW)*0.003921569)*finalLightB))
+
+										pixels[coord] = byte(finalR)
+										pixels[coord+1] = byte(finalG)
+										pixels[coord+2] = byte(finalB)
+										pixels[coord+3] = 255
+									}
+
+								}
 							}
-
 						}
 					}
+
 				}
-			}
-
-			// drawLineZ(v1.Pos, v2.Pos, width, height, Black, pixels, zbuffer)
-
+			}()
 		}
+
+		wg.Wait()
+		nextBin.Store(0)
 
 		texture.Update(nil, pixels, int32(width*4))
 
 		renderer.Clear()
 		renderer.RenderTexture(texture, nil, nil)
 
-		if frameCount >= frameCountFrequency {
-			fps = fpsAcc / float32(frameCount)
-			fpsAcc = 0
-			frameCount = 0
-		}
+		// fps = fpsAcc / float32(frameCount)
 
-		renderer.DebugText(10, 10, fmt.Sprintf("FPS: %.0f", fps))
+		frameTime := sdl.Ticks() - frameStart
+
+		if frameTime < uint64(targetFrameMS) {
+			sdl.Delay(uint32(targetFrameMS) - uint32(frameTime))
+		}
+		renderer.DebugText(10, 10, fmt.Sprintf("FPS: %.0f", 1000.0/float32(frameTime)))
 		renderer.DebugText(10, 20, fmt.Sprintf("Position: %.0f, %0.f, %0.f", camera.Position.X, camera.Position.Y, camera.Position.Z))
 		renderer.Present()
 
